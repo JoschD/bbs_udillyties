@@ -1,7 +1,6 @@
 """ Circleshift the beampositions of B1 and B2 to be comparable """
 
-
-from utils import tfs_pandas as tfs
+from tfs_files import tfs_pandas as tfs
 
 LENGTH = {
     "lhc_runII_2017": 26658.8832,

@@ -1,5 +1,5 @@
 from predefined import plotly_wrapper, get_layout, get_scatter_for_df
-from utils import tfs_pandas as tfs
+from tfs_files import tfs_pandas as tfs
 
 if __name__ == '__main__':
     data = "/media/jdilly/Storage/Repositories/Gui_Output/2018-04-25/models/LHCB1/b1_with_newTunes/twiss.dat"

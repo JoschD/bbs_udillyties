@@ -1,6 +1,8 @@
 import os
+import re
 import sys
 import random
+import shutil
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -9,7 +11,39 @@ import pandas
 import seaborn
 
 from utils import logging_tools
-from utils import tfs_pandas as tfs
+from tfs_files import tfs_pandas as tfs
+
+LOG = logging_tools.get_logger(__name__)
+
+
+# Renaming ###################################################################
+
+
+def replace_pattern_in_filenames_by_str(folder, pattern, replace, filter=None, recursive=False, test=False):
+    """ Rename files in `folder` by replacing the `pattern` with `replace`
+
+    Args:
+        folder: folder to search in for files to rename
+        pattern: pattern to replace
+        replace: string to replace it with
+        filter: filter files by this first
+        recursive: do it recursively
+    """
+
+    regex = re.compile(pattern)
+    if filter:
+        filter = re.compile(filter)
+
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            if ((filter and filter.search(file)) or filter is None) and regex.search(file):
+                src = os.path.join(root, file)
+                dst = os.path.join(root, regex.sub(replace, file))
+                LOG.info("'{}' -> '{}'".format(src, dst))
+                if not test:
+                    shutil.move(src, dst)
+        if not recursive:
+            break
 
 
 # Entry Point ################################################################
@@ -36,14 +70,14 @@ class CreateParamHelp(object):
 # TFS Manipulation ###########################################################
 
 
-def filter_tfs(path_in, regex, path_out=None):
+def filter_tfs(path_in, regex, path_out=None, case=True):
     """ Read tfs file and filter with regex by name """
     if path_out is None:
         path_out = path_in
 
     df = tfs.read_tfs(path_in, index="NAME")
-    filter_idx = tfs.get_index_by_regex(df, regex)
-    tfs.write_tfs(path_out, df.loc[filter_idx, :], save_index="NAME")
+    filter_idx_mask = df.index.str.contains(regex, case=case)
+    tfs.write_tfs(path_out, df.loc[filter_idx_mask, :], save_index="NAME")
 
 
 def convert_old_pandas_pickle(files):
@@ -107,4 +141,6 @@ def example_filter_tfs():
 
 
 if __name__ == '__main__':
-    example_get_random_cutoff_gauss()
+    # replace_pattern_in_filenames_by_str("/home/jdilly/link_afs_work/private/STUDY.18.ampdet_flatoptics", "by_by_", "by_", recursive=True)
+    # example_get_random_cutoff_gauss()
+    pass
