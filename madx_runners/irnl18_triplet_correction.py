@@ -90,6 +90,12 @@ def get_params():
         help="Path to the current working directory.",
     )
     params.add_parameter(
+        flags="--madxout",
+        name="madx_out",
+        type=str,
+        help="Path to the root directory for madx-output.",
+    )
+    params.add_parameter(
         flags="--edef",
         name="errordef_dir",
         type=str,
@@ -116,26 +122,28 @@ def get_params():
 @entrypoint(get_params(), strict=True)
 def main(opt):
     """ Main loop over all input variables """
-    LOG.info("Creating {:d} submissions for {:d} madx-jobs.".format(*get_number_of_jobs(opt)))
+    n_subs, n_jobs = get_number_of_jobs(opt)
+    LOG.info("Creating {:d} submissions for {:d} madx-jobs.".format(n_subs, n_jobs))
     LOG.info("Starting main loop.")
-    madx_jobs = []
-    job_no = 0
+    opt.madx_out = opt.madx_out if opt.madx_out is not None else opt.cwd
+    madx_jobs = {}
+    job_idx = 0
     for beam in opt.beams:
         for xing in opt.xing:
             for error_types in opt.error_types:
                 for error_loc in opt.error_locations:
                     for seed in opt.seeds:
                         # define seed folder and error definition paths
-                        seed_dir = get_seed_dir(opt.cwd, seed)
+                        seed_dir = get_seed_dir(opt.madx_out, seed)
                         errordef_path = get_errordef_path(opt.errordef_dir, seed, error_loc)
 
                         # assuming that we want 30/30 correction applied to the other optics
                         # we need to run the jobs in specific order
                         sequential_jobs = []
                         for optic_type in opt.optic_types:
-                            job_no += 1
+                            job_idx += 1
                             LOG.info(
-                                "Job No: {}, ".format(job_no) +
+                                "Job No: {}/{}, ".format(job_idx, n_jobs) +
                                 "Beam: {}, ".format(beam) +
                                 "Xing: {}, ".format(xing) +
                                 "eTypes: {}, ".format(",".join(error_types)) +
@@ -150,7 +158,10 @@ def main(opt):
                             )
                             for njob in new_jobs:
                                 sequential_jobs.append(njob)
-                        madx_jobs.append(sequential_jobs)
+
+                        madx_jobs[get_job_name(
+                            beam, xing, error_types, error_loc, seed
+                        )] = sequential_jobs
 
     run_madx_jobs(madx_jobs, opt.run_local, opt.cwd)
 
@@ -207,15 +218,15 @@ def create_madx_jobs(seed_dir, errordef_path,
 def run_madx_jobs(jobs, local, cwd):
     """ Wrapper to run or submit the madx-jobs. """
     if local:
-        for seq_jobs in jobs:
+        for seq_jobs in jobs.values():
             for job in seq_jobs:
-                madx.resolve_and_run_file(job, log_file="{}.log".format(job), cwd=cwd)
+                madx.resolve_and_run_file(job, log_file="{}.log".format(job), cwd=madx_cwd)
 
     else:
-        for idx, seq_jobs in enumerate(jobs):
+        for key in jobs:
             # create one folder per job to not get conflicts with the temp-subfolder
-            job_dir = get_job_dir(cwd, idx+1)
-            bash = htc.write_madx_bash(job_dir, "", seq_jobs)
+            job_dir = get_job_dir(cwd, key)
+            bash = htc.write_madx_bash(job_dir, "", jobs[key])
             condor_job = htc.create_job_for_bashfile(bash, duration="tomorrow")
             condor_sub = htc.create_subfile_from_job(job_dir, condor_job)
             htc.submit_jobfile(condor_sub)
@@ -223,48 +234,71 @@ def run_madx_jobs(jobs, local, cwd):
 
 # File Management ##############################################################
 
+def get_nameparts_from_parameters(beam=None, xing=None, error_types=None, error_loc=None,
+                                  seed=None, optic_type=None):
+    """ Creates strings from the parameters to be used in names """
+    parts = []
+
+    if seed:
+        parts.append("seed_{:04d}".format(seed))
+
+    if beam:
+        parts.append("b{:d}".format(beam))
+
+    if optic_type:
+        parts.append(optic_type)
+
+    if error_types:
+        parts.append("errors_{:s}".format("_".join(error_types)))
+
+    if error_loc:
+        parts.append("in_all_IPs" if "ALL" == error_loc else "in_{:s}".format(error_loc))
+
+    if xing:
+        xing_map = {
+            True: "wXing",
+            False: "noXing",
+            "else": "{:s}Xing",
+        }
+        try:
+            parts.append(xing_map[xing])
+        except KeyError:
+            parts.append(xing_map["else"].format(xing))
+
+    return parts
+
 
 def get_output_dir(seed_dir, xing, error_types, error_loc, optic_type):
     """ Return the output dir based on the input parameters """
-    # Xing
-    xing_map = {
-        True: "wXing",
-        False: "noXing",
-        "else": "{:s}Xing",
-    }
-    try:
-        xing_str = xing_map[xing]
-    except KeyError:
-        xing_str = xing_map["else"].format(xing)
-
-    # error_types
-    error_type_str = "errors_{:s}".format("_".join(error_types))
-
-    # error_loc
-    error_loc_str = "in_all_IPs" if "ALL" == error_loc else "in_{:s}".format(error_loc)
-
-    output_dir = os.path.join(seed_dir,
-        "output_{:s}".format(".".join(
-            [optic_type, error_type_str, error_loc_str, xing_str]))
+    output_dir = os.path.join(
+        seed_dir,
+        "output_{:s}".format(".".join(get_nameparts_from_parameters(
+            xing=xing, error_types=error_types, error_loc=error_loc, optic_type=optic_type
+        )))
     )
-
     iotools.create_dirs(output_dir)
     return output_dir
 
 
 def get_seed_dir(cwd, seed):
     """ Build the seed-dir-name and create it. """
-    seed_dir = os.path.join(cwd, "seed_{:04d}".format(seed))
+    seed_dir = os.path.join(cwd, get_nameparts_from_parameters(seed=seed)[0])
     iotools.create_dirs(seed_dir)
     return seed_dir
 
 
-def get_job_dir(cwd, idx):
+def get_job_dir(cwd, id):
     """ Build the job-dir-name and create it. """
-    job_dir = os.path.join(cwd, "job_{:04d}".format(idx))
+    job_dir = os.path.join(cwd, id)
     iotools.create_dirs(job_dir)
     return job_dir
 
+
+def get_job_name(beam, xing, error_types, error_loc, seed):
+    """ Return the name for the job """
+    return ".".join(["job"] + get_nameparts_from_parameters(
+        beam=beam, xing=xing, error_types=error_types, error_loc=error_loc, seed=seed
+    ))
 
 def get_errordef_path(path, seed, error_loc):
     """ Return the fullpath to the error definition file """
@@ -296,4 +330,4 @@ def get_number_of_jobs(opt):
 
 if __name__ == '__main__':
     # main()
-    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="Beam2_wXing")
+    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
