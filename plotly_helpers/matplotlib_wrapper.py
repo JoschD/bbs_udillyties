@@ -1,4 +1,6 @@
 import math
+import json
+import os
 
 from matplotlib import pyplot as plt, gridspec, rcParams
 from matplotlib.backends.backend_pdf import PdfPages
@@ -8,6 +10,7 @@ from utils.plotting import plot_style as ps
 
 
 def plot_wrapper(data, layout, title):
+    tick_length_before_rotation = 6
     # create figure
     ps.set_style("standard", {u'grid.linestyle': u'--'})
     fig = plt.figure()
@@ -79,10 +82,31 @@ def plot_wrapper(data, layout, title):
     with suppress_exception(KeyError):
         ax.yaxis.grid(layout["yaxis"]["showgrid"])
 
+    with suppress_exception(KeyError):
+        ax.xaxis.set_ticks(layout["xaxis"]["tickvals"])
+
+    with suppress_exception(KeyError):
+        max_len = max([len(txt) for txt in layout["xaxis"]["ticktext"]])
+        rot = 45 if max_len > tick_length_before_rotation else 0
+        ha = "right" if max_len > tick_length_before_rotation else "center"
+        ax.xaxis.set_ticklabels(layout["xaxis"]["ticktext"], rotation=rot, ha=ha)
+
+    with suppress_exception(KeyError):
+        ax.yaxis.set_ticks(layout["yaxis"]["tickvals"])
+
+    with suppress_exception(KeyError):
+        max_len = max([len(txt) for txt in layout["yaxis"]["ticktext"]])
+        rot = 45 if max_len > tick_length_before_rotation else 0
+        ha = "right" if max_len > tick_length_before_rotation else "center"
+        ax.yaxis.set_ticklabels(layout["yaxis"]["ticktext"], rotation=rot, ha=ha)
+
     ncol = 3
     nlines_legend = math.ceil(n_legend / 3.)
-    ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1. + nlines_legend * 0.1),
+    leg = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1. + nlines_legend * 0.1),
               fancybox=True, shadow=True, ncol=ncol)
+                # use _set_loc, makes finding the location later on easier
+    leg._set_loc((.3 if n_legend == 1 else .12, 1.05))
+    fig.tight_layout()
 
     return fig
 
@@ -97,6 +121,19 @@ def plot_and_save(path, data, layout, title):
     plt.close()
 
 
+def plot_from_json(file_path):
+    with open(file_path, "r") as f:
+        content_dict = json.loads(f.read())
+    title = os.path.basename(file_path.replace(".json", "")).replace(".", " ")
+    plot_wrapper(content_dict["data"], content_dict["layout"], title)
+
+
+# Script Mode ##################################################################
+
+
+if __name__ == '__main__':
+    plot_from_json("/home/jdilly/link_afs_work/private/STUDY.18.ampdet_flatoptics/plot_output/B1.noXing.errors.B4.in.all.IPs.ANHX0100.json")
+    plt.show()
 
 
 

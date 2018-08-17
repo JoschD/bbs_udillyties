@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 import enlighten
@@ -26,7 +27,8 @@ LOG = logging_tools.get_logger(__name__)
 
 AMPDET_FILENAME = "ptc_normal.ampdet.b{beam:d}.{id:s}.dat"  # see madx_snippets.py
 AMPDET_NAMES = ["ANHX1000", "ANHY0100", "ANHX0100"]
-UNUSED_STAGES = ["ARCAPPLIED"]  # see in template_control
+UNUSED_STAGES = ["ARCAPPLIED"]  # see in template_control, "corrected" needs to be in the stages!!
+SAME_OPTICS = "same_optics"  # identifyier to be replaced by optics in filename
 
 
 def get_params():
@@ -79,13 +81,11 @@ def gather_plot_data(cwd, beam, xing, error_types, error_loc, optic_types, seeds
     """ Gather the data for a single plot """
     data = {}
     for optic_type in optic_types:
-        ids = _get_all_output_ids(beam, optic_type)
         df = pandas.DataFrame(
-            index=ids,
             columns=["{}_{}".format(n, i)
                      for n in AMPDET_NAMES for i in ["AVG", "MIN", "MAX", "STD"]]
         )
-        for output_id in ids:
+        for output_id in _get_all_output_ids(beam):
             seed_data = pandas.DataFrame(
                 index=seeds,
                 columns=AMPDET_NAMES,
@@ -97,9 +97,8 @@ def gather_plot_data(cwd, beam, xing, error_types, error_loc, optic_types, seeds
                                  error_loc, optic_type, output_id
                                  )
                 )
-
             df.loc[output_id, :] = get_avg_and_error(seed_data)[df.columns].values
-            data[optic_type] = df
+        data[optic_type] = df
     return data
 
 
@@ -133,11 +132,9 @@ def save_plot_data(cwd, data, title, line_names):
         LOG.info("Writing plot for '{:s}'".format(full_title))
 
         lines = []
-        x_names = []
         color_cycle = ps.get_mpl_color()
         for line_name in line_names:
-            df = data[line_name]
-            x_names = x_names + [i for i in df.index if i not in x_names]
+            df = data[line_name]  # assumes all df here have the same indices
             current_color = color_cycle.next()
             lines += [go.Scatter(
                 x=list(range(len(df.index))),
@@ -154,12 +151,12 @@ def save_plot_data(cwd, data, title, line_names):
             )]
 
         xaxis = dict(
-            range=[-0.1, len(x_names)],
+            range=[-0.1, len(df.index)],
             title=full_title,
             showgrid=True,
             ticks="outer",
-            ticktext=x_names,
-            tickvals=list(range(len(x_names)))
+            ticktext=df.index,
+            tickvals=list(range(len(df.index)))
         )
 
         yaxis = dict(
@@ -179,6 +176,10 @@ def get_tfs_name(cwd, beam, seed, xing, error_types, error_loc, optic_type, id):
     output_dir = tripcor.get_output_dir(
         tripcor.get_seed_dir(cwd, seed), xing, error_types, error_loc, optic_type
     )
+    id = id.replace(SAME_OPTICS, optic_type)
+    if "b{:d}".format(beam) in id and "3030" in id:
+        id = tripcor_tmplt.IDS[tripcor_tmplt.STAGE_ORDER[-1]]
+
     file_name = AMPDET_FILENAME.format(beam=beam, id=id)
     return os.path.join(output_dir, file_name)
 
@@ -204,12 +205,13 @@ def get_plot_title(beam, xing, error_types, error_loc):
     return " ".join(["B{:d}".format(beam), xing_str,error_type_str, error_loc_str])
 
 
-def _get_all_output_ids(beam, optic_type):
+def _get_all_output_ids(beam):
+    if "CORRECTED" in UNUSED_STAGES:
+        raise EnvironmentError("CORRECTED is not supposed to be filtered by UNUSED_STAGES.")
     out = [tripcor_tmplt.IDS[key] for key in tripcor_tmplt.STAGE_ORDER if key not in UNUSED_STAGES]
     corrected_by = out[-1] + "_by_b{:d}_{:s}"
-    out.append(corrected_by.format(tripcor.get_other_beam(beam), optic_type))
-    if optic_type != "3030":
-        out.append(corrected_by.format(beam, "3030"))
+    out.append(corrected_by.format(tripcor.get_other_beam(beam), SAME_OPTICS))
+    out.append(corrected_by.format(beam, "3030"))
     return out
 
 

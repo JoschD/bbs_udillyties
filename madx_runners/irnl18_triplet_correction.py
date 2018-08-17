@@ -6,7 +6,6 @@ beta_beta_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pard
 sys.path.append(beta_beta_path)
 
 import madx_wrapper as madx
-from utils.dict_tools import DotDict
 from utils import iotools
 from utils.entrypoint import entrypoint, EntryPointParameters
 from utils.entry_datatypes import BoolOrString
@@ -22,6 +21,7 @@ from udillyties.madx_runners import irnl18_triplet_correction_template_control a
 LOG = logging_tools.get_logger(__name__)
 
 ERRORDEF_FILENAME = "WISE.errordef.{:04d}{:s}.tfs"
+
 
 # main loop ####################################################################
 
@@ -220,7 +220,7 @@ def run_madx_jobs(jobs, local, cwd):
     if local:
         for seq_jobs in jobs.values():
             for job in seq_jobs:
-                madx.resolve_and_run_file(job, log_file="{}.log".format(job), cwd=madx_cwd)
+                madx.resolve_and_run_file(job, log_file="{}.log".format(job), cwd=cwd)
 
     else:
         for key in jobs:
@@ -233,6 +233,7 @@ def run_madx_jobs(jobs, local, cwd):
 
 
 # File Management ##############################################################
+
 
 def get_nameparts_from_parameters(beam=None, xing=None, error_types=None, error_loc=None,
                                   seed=None, optic_type=None):
@@ -299,6 +300,7 @@ def get_job_name(beam, xing, error_types, error_loc, seed):
     return ".".join(["job"] + get_nameparts_from_parameters(
         beam=beam, xing=xing, error_types=error_types, error_loc=error_loc, seed=seed
     ))
+
 
 def get_errordef_path(path, seed, error_loc):
     """ Return the fullpath to the error definition file """
