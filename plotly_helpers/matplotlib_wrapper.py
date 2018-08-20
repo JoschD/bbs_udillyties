@@ -102,9 +102,8 @@ def plot_wrapper(data, layout, title):
 
     ncol = 3
     nlines_legend = math.ceil(n_legend / 3.)
-    leg = ax.legend(loc='upper center', bbox_to_anchor=(0.5, 1. + nlines_legend * 0.1),
-              fancybox=True, shadow=True, ncol=ncol)
-                # use _set_loc, makes finding the location later on easier
+    leg = ax.legend(loc='upper center', fancybox=True, shadow=True, ncol=ncol)
+    # use _set_loc, makes finding the location later on easier
     leg._set_loc((.3 if n_legend == 1 else .12, 1.05))
     fig.tight_layout()
 
@@ -125,7 +124,8 @@ def plot_from_json(file_path):
     with open(file_path, "r") as f:
         content_dict = json.loads(f.read())
     title = os.path.basename(file_path.replace(".json", "")).replace(".", " ")
-    plot_wrapper(content_dict["data"], content_dict["layout"], title)
+    return plot_wrapper(content_dict["data"], content_dict["layout"], title)
+
 
 
 # Script Mode ##################################################################

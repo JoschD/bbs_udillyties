@@ -20,6 +20,7 @@ import irnl18_triplet_correction as tripcor
 import irnl18_triplet_correction_template_control as tripcor_tmplt
 from tfs_files import tfs_pandas as tfs
 import udillyties.plotly_helpers.predefined as plotly_predef
+import udillyties.plotly_helpers.matplotlib_wrapper as mpl_wrap
 
 
 LOG = logging_tools.get_logger(__name__)
@@ -97,7 +98,7 @@ def gather_plot_data(cwd, beam, xing, error_types, error_loc, optic_types, seeds
                                  error_loc, optic_type, output_id
                                  )
                 )
-            df.loc[output_id, :] = get_avg_and_error(seed_data)[df.columns].values
+            df.loc[output_id.replace("_", " "), :] = get_avg_and_error(seed_data)[df.columns].values
         data[optic_type] = df
     return data
 
@@ -155,7 +156,7 @@ def save_plot_data(cwd, data, title, line_names):
             title=full_title,
             showgrid=True,
             ticks="outer",
-            ticktext=df.index,
+            ticktext=list(df.index),
             tickvals=list(range(len(df.index)))
         )
 
@@ -167,6 +168,17 @@ def save_plot_data(cwd, data, title, line_names):
         output_file = os.path.join(cwd, full_title.replace(" ", ".") + ".json")
         with open(output_file, "w") as f:
             f.write(json.dumps({'data': lines, 'layout': layout}))
+
+
+@entrypoint(get_params(), strict=True)
+def load_and_plot_all_saved(opt):
+    cwd = get_output_folder(opt.cwd)
+    for file in os.listdir(cwd):
+        if file.endswith(".json"):
+            file = os.path.join(cwd, file)
+            fig = mpl_wrap.plot_from_json(file)
+            fig.savefig(file.replace(".json", ".png"))
+            fig.savefig(file.replace(".json", ".pdf"))
 
 
 # Naming Helper ################################################################
@@ -226,4 +238,12 @@ def get_output_folder(cwd):
 
 if __name__ == '__main__':
     # main()
-    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+
+    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
+    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
+
+    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
+    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
+
