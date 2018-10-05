@@ -50,22 +50,26 @@ def replace_pattern_in_filenames_by_str(folder, pattern, replace, filter=None, r
 
 
 def create_param_help_example():
-    import global_correct_iterative
+    import amplitude_detuning_analysis
     create_param_help = CreateParamHelp()
-    create_param_help(global_correct_iterative)
+    create_param_help(amplitude_detuning_analysis, "_get_plot_params")
+    # create_param_help(amplitude_detuning_analysis)
 
 
 class CreateParamHelp(object):
     """ Print params help quickly """
     def __init__(self):
-        logging_tools.get_logger("__main__", fmt="%(message)s")
+        logging_tools.getLogger("").handlers = []  # remove all handlers from root-logger
+        logging_tools.get_logger("__main__", fmt="%(message)s")  # set up new
 
-    def __call__(self, module):
-        try:
-            module.get_params().help()
-        except AttributeError:
-            module._get_params().help()
-
+    def __call__(self, module, param_fun=None):
+        if param_fun is None:
+            try:
+                module.get_params().help()
+            except AttributeError:
+                module._get_params().help()
+        else:
+            getattr(module, param_fun)().help()
 
 # TFS Manipulation ###########################################################
 
@@ -143,4 +147,5 @@ def example_filter_tfs():
 if __name__ == '__main__':
     # replace_pattern_in_filenames_by_str("/home/jdilly/link_afs_work/private/STUDY.18.ampdet_flatoptics", "by_by_", "by_", recursive=True)
     # example_get_random_cutoff_gauss()
+    create_param_help_example()
     pass
