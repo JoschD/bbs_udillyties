@@ -116,6 +116,12 @@ def get_params():
         action="store_true",
         help="Flag to run the jobs on the local machine. Not suggested.",
     )
+    params.add_parameter(
+        flags="--duration",
+        name="max_duration",
+        help="Maximum duration to allow for htcondor jobs (ignored if run local).",
+        default="workday",
+    )
     return params
 
 
@@ -163,7 +169,7 @@ def main(opt):
                             beam, xing, error_types, error_loc, seed
                         )] = sequential_jobs
 
-    run_madx_jobs(madx_jobs, opt.run_local, opt.cwd)
+    run_madx_jobs(madx_jobs, opt.run_local, opt.cwd, opt.max_duration)
 
 
 # Main Subfunctions ############################################################
@@ -215,7 +221,7 @@ def create_madx_jobs(seed_dir, errordef_path,
     return jobs
 
 
-def run_madx_jobs(jobs, local, cwd):
+def run_madx_jobs(jobs, local, cwd, max_duration):
     """ Wrapper to run or submit the madx-jobs. """
     if local:
         for seq_jobs in jobs.values():
@@ -227,7 +233,7 @@ def run_madx_jobs(jobs, local, cwd):
             # create one folder per job to not get conflicts with the temp-subfolder
             job_dir = get_job_dir(cwd, key)
             bash = htc.write_madx_bash(job_dir, "", jobs[key])
-            condor_job = htc.create_job_for_bashfile(bash, duration="tomorrow")
+            condor_job = htc.create_job_for_bashfile(bash, duration=max_duration)
             condor_sub = htc.create_subfile_from_job(job_dir, condor_job)
             htc.submit_jobfile(condor_sub)
 
@@ -335,3 +341,4 @@ if __name__ == '__main__':
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
+    # main(entry_cfg="./irnl18_triplet_correction_configs/rdt_study.ini", section="B1XingOnOff")

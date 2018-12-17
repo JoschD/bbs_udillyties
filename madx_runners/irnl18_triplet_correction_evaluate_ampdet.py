@@ -1,5 +1,4 @@
 import os
-import re
 import sys
 
 import enlighten
@@ -15,7 +14,7 @@ sys.path.append(beta_beta_path)
 from utils.entrypoint import entrypoint
 from utils import logging_tools
 from utils import iotools
-from utils.plotting import plot_style as ps
+from plotshop import plot_style as ps
 import irnl18_triplet_correction as tripcor
 import irnl18_triplet_correction_template_control as tripcor_tmplt
 from tfs_files import tfs_pandas as tfs
@@ -98,7 +97,8 @@ def gather_plot_data(cwd, beam, xing, error_types, error_loc, optic_types, seeds
                                  error_loc, optic_type, output_id
                                  )
                 )
-            df.loc[output_id.replace("_", " "), :] = get_avg_and_error(seed_data)[df.columns].values
+                label = output_id.replace("_", " ").replace("corrected by", "t by")
+            df.loc[label, :] = get_avg_and_error(seed_data)[df.columns].values
         data[optic_type] = df
     return data
 
@@ -237,13 +237,13 @@ def get_output_folder(cwd):
 
 
 if __name__ == '__main__':
-    # main()
-    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
-    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    main()
+    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
 
-    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
+    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
     load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
 
-    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
+    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
     load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
 

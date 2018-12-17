@@ -153,7 +153,7 @@ twiss, sequence=lhcb2, file=twiss.b2;system,"cat twiss.b2";
 
 !############################## Tune Matching ####################################################################################
 
-if(is_thin==0){
+if(is_thin==1){
     !!! thin version of tune matching
     if(mylhcbeam==1){
        match;

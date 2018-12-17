@@ -5,7 +5,7 @@ import sys
 beta_beta_path = os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir, os.pardir))
 sys.path.append(beta_beta_path)
 
-from madx import madx_snippets
+from madx import code_snippets
 from utils import logging_tools
 
 LOG = logging_tools.get_logger(__name__)
@@ -115,8 +115,8 @@ def _get_errortypes_params(error_types):
 def _get_output_snippets(path, beam, correct_by, measure_of_interest):
     """ Return the output-creating snippets to be placed into the madx file """
     snippet = {
-        "ptcrdt": madx_snippets.get_ptc_twiss_rdt,
-        "ptcampdet": madx_snippets.get_ptc_amplitude_detuning,
+        "ptcrdt": code_snippets.get_ptc_twiss_rdt,
+        "ptcampdet": code_snippets.get_ptc_amplitude_detuning,
     }
 
     ids = IDS.copy()
