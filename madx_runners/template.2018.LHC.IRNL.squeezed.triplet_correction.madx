@@ -33,6 +33,10 @@ dqyinit=%(CHROMY)s;
 emittance=7.29767146889e-09;
 MOpowering=0.0; ! NOMINAL = +9 INJECTION -15 SQUEEZE[END] !!! ROD.A56.B1 ARE WEAK, TAKEN CARE OF LATER...
 
+! Other
+calccorrections = %(CALCCORRECTTRIP)s ; ! calculate triplet correction (otherwise just load it)
+arcerrors = %(ARCERRORS)s ; ! apply errors to the arcs
+
 !############################## Set up Lattice ###################################################################################
 
 if(mylhcbeam<3){ call,file="optics2017/lhc_as-built.seq";   };
@@ -282,12 +286,11 @@ readtable, file="%(ERRORDEF)s";
 
 !+++++ Apply field errors to Arcs ++++++++++++++++++++++++++++++++
 
-arcerrors = %(ARCERRORS)s ;
 if (arcerrors == 1) {
 	call,   file="db5/measured_errors/Efcomp_MB.madx"  ;
 	call,   file="db5/measured_errors/Efcomp_MQ.madx"  ;
 	%(ARCAPPLIED)s
-}
+};
 
 !+++++ Apply field errors to all other quads and dipoles ++++++++++++++++++++++
 
@@ -317,7 +320,6 @@ call,   file="db5/measured_errors/Efcomp_MQW.madx" ;
 
 !############################## Nominal corrections for Triplet and D1 ##########################################################
 
-calccorrections = %(CALCCORRECTIONS)s ;
 if (calccorrections == 1) {
   select, flag=error, clear;
   select, flag=error, pattern=MQX,  class=multipole;

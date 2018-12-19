@@ -8,7 +8,7 @@ sys.path.append(beta_beta_path)
 import madx_wrapper as madx
 from utils import iotools
 from utils.entrypoint import entrypoint, EntryPointParameters
-from utils.entry_datatypes import BoolOrString
+from utils.entry_datatypes import BoolOrList
 from utils import htcondor_wrapper as htc
 from utils import logging_tools
 
@@ -20,14 +20,20 @@ from udillyties.madx_runners import irnl18_triplet_correction_template_control a
 #                                )
 LOG = logging_tools.get_logger(__name__)
 
-ERRORDEF_FILENAME = "WISE.errordef.{:04d}{:s}.tfs"
-
 
 # main loop ####################################################################
 
 
 def get_params():
     params = EntryPointParameters()
+    params.add_parameter(
+        flags="--machine",
+        name="machine",
+        type=str,
+        choices=["LHC", "HLLHC"],
+        default="LHC",
+        help="Machine to use",
+    )
     params.add_parameter(
         flags="--beams",
         name="beams",
@@ -41,8 +47,7 @@ def get_params():
         flags="--xing",
         name="xing",
         nargs="+",
-        type=BoolOrString,
-        choices=[True, False, "IP1", "IP5"],
+        type=BoolOrList,
         required=True,
         help="List of crossing angles to apply. (True=all, False=none)",
     )
@@ -51,7 +56,7 @@ def get_params():
         name="optic_types",
         type=str,
         nargs="+",
-        choices=["3030", "1515", "6015"],
+        choices=["3030", "1515", "6015", "4040"],
         required=True,
         help="Optic types to use, e.g. '3030' for 30/30 betastar round optics.",
     )
@@ -69,7 +74,6 @@ def get_params():
         type=str,
         nargs="+",
         choices=["ALL", "IP1", "IP5"],
-        required=True,
         help=("Defines the error location. "
               "Use 'ALL' for everywhere, 'IP#' for specific IP. "
               "Needs the wise-files to be available for these shananigans."),
@@ -96,11 +100,18 @@ def get_params():
         help="Path to the root directory for madx-output.",
     )
     params.add_parameter(
-        flags="--edef",
+        flags="--edefdir",
         name="errordef_dir",
         type=str,
         required=True,
         help="Path to the error-definition (WISE) files.",
+    )
+    params.add_parameter(
+        flags="--edefmask",
+        name="errordef_mask",
+        type=str,
+        required=True,
+        help="Mask of the error-definition (WISE) files.",
     )
     params.add_parameter(
         flags="--moi",
@@ -122,18 +133,36 @@ def get_params():
         help="Maximum duration to allow for htcondor jobs (ignored if run local).",
         default="workday",
     )
+    params.add_parameter(
+        flags="--wother",
+        name="with_other_corrections",
+        help="do also the other corrections, i.e. from 3030 and other beam.",
+        action="store_true",
+    )
+    params.add_parameter(
+        flags="--unstage",
+        name="unused_stages",
+        type=str,
+        nargs="+",
+        default=[],
+        help="List of unused stages.",
+    )
     return params
 
 
 @entrypoint(get_params(), strict=True)
 def main(opt):
     """ Main loop over all input variables """
+    if opt.error_locations is None:
+        opt.error_locations = ["ALL"]
+
     n_subs, n_jobs = get_number_of_jobs(opt)
     LOG.info("Creating {:d} submissions for {:d} madx-jobs.".format(n_subs, n_jobs))
     LOG.info("Starting main loop.")
     opt.madx_out = opt.madx_out if opt.madx_out is not None else opt.cwd
     madx_jobs = {}
     job_idx = 0
+
     for beam in opt.beams:
         for xing in opt.xing:
             for error_types in opt.error_types:
@@ -141,7 +170,6 @@ def main(opt):
                     for seed in opt.seeds:
                         # define seed folder and error definition paths
                         seed_dir = get_seed_dir(opt.madx_out, seed)
-                        errordef_path = get_errordef_path(opt.errordef_dir, seed, error_loc)
 
                         # assuming that we want 30/30 correction applied to the other optics
                         # we need to run the jobs in specific order
@@ -158,9 +186,12 @@ def main(opt):
                                 "oType: {}, ".format(optic_type)
                             )
                             new_jobs = create_madx_jobs(
-                                seed_dir, errordef_path,
+                                opt.machine,
+                                seed_dir, opt.errordef_dir, opt.errordef_mask,
+                                seed,
                                 beam, xing, error_types, error_loc, optic_type,
                                 opt.measure_of_interest,
+                                opt.with_other_corrections,
                             )
                             for njob in new_jobs:
                                 sequential_jobs.append(njob)
@@ -175,9 +206,9 @@ def main(opt):
 # Main Subfunctions ############################################################
 
 
-def create_madx_jobs(seed_dir, errordef_path,
+def create_madx_jobs(machine, seed_dir, errordef_dir, errordef_mask, seed,
                      beam, xing, error_types, error_loc, optic_type,
-                     measure_of_interest):
+                     measure_of_interest, do_other_corrections):
     """ Create madx jobs for:
         - the full current setup (given by the loop parameter)
         - the correction of the other beam by means of the former results
@@ -191,33 +222,36 @@ def create_madx_jobs(seed_dir, errordef_path,
 
     # create output dir
     path = get_output_dir(seed_dir, xing, error_types, error_loc, optic_type)
+    control_tmplt = tripcor_tmplt.TemplateControl(machine)
+    errordef_path = get_errordef_path(errordef_dir, errordef_mask, seed, error_loc)
 
     # write madx-jobfiles
     # normal job
-    jobs.append(tripcor_tmplt.write_madx_job(
-        path, errordef_path,
+    jobs.append(control_tmplt.write_madx_job(
+        path, errordef_path, seed,
         beam, xing, error_types, optic_type,
         None, measure_of_interest)
     )
 
-    # corrected by the corrections of the other beam
-    correct_other_beam = tripcor_tmplt.get_correction_file(path, beam, optic_type)
-    jobs.append(tripcor_tmplt.write_madx_job(
-        path, errordef_path,
-        get_other_beam(beam), xing, error_types, optic_type,
-        correct_other_beam, measure_of_interest)
-    )
-
-    # corrected by the corrections of 30/30 round optics
-    if "3030" != optic_type:
-        path_3030 = get_output_dir(seed_dir, xing, error_types, error_loc, "3030")
-        correct_3030 = tripcor_tmplt.get_correction_file(path_3030, beam, "3030")
-
-        jobs.append(tripcor_tmplt.write_madx_job(
-            path, errordef_path,
-            beam, xing, error_types, optic_type,
-            correct_3030, measure_of_interest)
+    if do_other_corrections:
+        # corrected by the corrections of the other beam
+        correct_other_beam = control_tmplt.get_correction_file(path, beam, optic_type)
+        jobs.append(control_tmplt.write_madx_job(
+            path, errordef_path, seed,
+            get_other_beam(beam), xing, error_types, optic_type,
+            correct_other_beam, measure_of_interest)
         )
+
+        # corrected by the corrections of 30/30 round optics
+        if "3030" != optic_type:
+            path_3030 = get_output_dir(seed_dir, xing, error_types, error_loc, "3030")
+            correct_3030 = control_tmplt.get_correction_file(path_3030, beam, "3030")
+
+            jobs.append(control_tmplt.write_madx_job(
+                path, errordef_path, seed,
+                beam, xing, error_types, optic_type,
+                correct_3030, measure_of_interest)
+            )
     return jobs
 
 
@@ -308,10 +342,15 @@ def get_job_name(beam, xing, error_types, error_loc, seed):
     ))
 
 
-def get_errordef_path(path, seed, error_loc):
+def get_errordef_path(path, errordef_mask, seed, error_loc):
     """ Return the fullpath to the error definition file """
     error_loc = "" if "ALL" == error_loc else ".{:s}".format(error_loc)
-    return os.path.join(path, ERRORDEF_FILENAME.format(seed, error_loc))
+    try:
+        return os.path.join(path, errordef_mask.format(seed=seed, loc=error_loc))
+    except KeyError:
+        if error_loc != "":
+            raise KeyError("Error location given but no placeholder in wise-mask found!")
+        return os.path.join(path, errordef_mask.format(seed=seed))
 
 
 # Helper #######################################################################
@@ -337,8 +376,9 @@ def get_number_of_jobs(opt):
 
 
 if __name__ == '__main__':
-    main()
+    # main()
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
     # main(entry_cfg="./irnl18_triplet_correction_configs/rdt_study.ini", section="B1XingOnOff")
+    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")

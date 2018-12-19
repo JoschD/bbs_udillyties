@@ -27,7 +27,6 @@ LOG = logging_tools.get_logger(__name__)
 
 AMPDET_FILENAME = "ptc_normal.ampdet.b{beam:d}.{id:s}.dat"  # see madx_snippets.py
 AMPDET_NAMES = ["ANHX1000", "ANHY0100", "ANHX0100"]
-UNUSED_STAGES = ["ARCAPPLIED"]  # see in template_control, "corrected" needs to be in the stages!!
 SAME_OPTICS = "same_optics"  # identifyier to be replaced by optics in filename
 
 
@@ -46,8 +45,8 @@ def main(opt):
 
     # main loop
     for beam, xing, error_types, error_loc in main_loop(opt):
-                    data = gather_plot_data(opt.cwd, beam, xing, error_types, error_loc,
-                                            opt.optic_types, opt.seeds)
+                    data = gather_plot_data(opt.cwd, opt.machine, beam, xing, error_types, error_loc,
+                                            opt.optic_types, opt.seeds, opt.unused_stages)
 
                     title = get_plot_title(beam, xing, error_types, error_loc)
 
@@ -77,7 +76,7 @@ def setup_progress_bar(length):
 # Data Gathering ###############################################################
 
 
-def gather_plot_data(cwd, beam, xing, error_types, error_loc, optic_types, seeds):
+def gather_plot_data(cwd, machine, beam, xing, error_types, error_loc, optic_types, seeds, unused_stages):
     """ Gather the data for a single plot """
     data = {}
     for optic_type in optic_types:
@@ -85,7 +84,7 @@ def gather_plot_data(cwd, beam, xing, error_types, error_loc, optic_types, seeds
             columns=["{}_{}".format(n, i)
                      for n in AMPDET_NAMES for i in ["AVG", "MIN", "MAX", "STD"]]
         )
-        for output_id in _get_all_output_ids(beam):
+        for output_id in _get_all_output_ids(machine, beam, unused_stages):
             seed_data = pandas.DataFrame(
                 index=seeds,
                 columns=AMPDET_NAMES,
@@ -93,11 +92,13 @@ def gather_plot_data(cwd, beam, xing, error_types, error_loc, optic_types, seeds
             for seed in seeds:
                 # define seed folder and error definition paths
                 seed_data.loc[seed, :] = get_values_from_tfs(
-                    get_tfs_name(cwd, beam, seed, xing, error_types,
+                    get_tfs_name(cwd, machine, beam, seed, xing, error_types,
                                  error_loc, optic_type, output_id
                                  )
                 )
-                label = output_id.replace("_", " ").replace("corrected by", "t by")
+            label = output_id.replace("_", " ").replace("corrected by", "t by")
+            tfs.write_tfs(os.path.join(get_output_folder(cwd), "{:s}.{:s}.{:s}.tfs".format(
+                optic_type, output_id, "collected_seed_data")), seed_data, save_index="SEED")
             df.loc[label, :] = get_avg_and_error(seed_data)[df.columns].values
         data[optic_type] = df
     return data
@@ -184,13 +185,13 @@ def load_and_plot_all_saved(opt):
 # Naming Helper ################################################################
 
 
-def get_tfs_name(cwd, beam, seed, xing, error_types, error_loc, optic_type, id):
+def get_tfs_name(cwd, machine, beam, seed, xing, error_types, error_loc, optic_type, id):
     output_dir = tripcor.get_output_dir(
         tripcor.get_seed_dir(cwd, seed), xing, error_types, error_loc, optic_type
     )
     id = id.replace(SAME_OPTICS, optic_type)
     if "b{:d}".format(beam) in id and "3030" in id:
-        id = tripcor_tmplt.IDS[tripcor_tmplt.STAGE_ORDER[-1]]
+        id = tripcor_tmplt.IDS[tripcor_tmplt.STAGE_ORDER[machine][-1]]
 
     file_name = AMPDET_FILENAME.format(beam=beam, id=id)
     return os.path.join(output_dir, file_name)
@@ -217,10 +218,10 @@ def get_plot_title(beam, xing, error_types, error_loc):
     return " ".join(["B{:d}".format(beam), xing_str,error_type_str, error_loc_str])
 
 
-def _get_all_output_ids(beam):
-    if "CORRECTED" in UNUSED_STAGES:
+def _get_all_output_ids(machine, beam, unused_stages):
+    if "CORRECTED" in unused_stages:
         raise EnvironmentError("CORRECTED is not supposed to be filtered by UNUSED_STAGES.")
-    out = [tripcor_tmplt.IDS[key] for key in tripcor_tmplt.STAGE_ORDER if key not in UNUSED_STAGES]
+    out = [tripcor_tmplt.IDS[key] for key in tripcor_tmplt.STAGE_ORDER[machine] if key not in unused_stages]
     corrected_by = out[-1] + "_by_b{:d}_{:s}"
     out.append(corrected_by.format(tripcor.get_other_beam(beam), SAME_OPTICS))
     out.append(corrected_by.format(beam, "3030"))
@@ -237,13 +238,13 @@ def get_output_folder(cwd):
 
 
 if __name__ == '__main__':
-    main()
-    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
-    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    #
+    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
+    #
+    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
 
-    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
-    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
-
-    main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
-    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
-
+    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="Test")
