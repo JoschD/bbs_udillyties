@@ -1,0 +1,212 @@
+import sys
+sys.path.append("/afs/cern.ch/eng/sl/lintrack/Beta-Beat.src/Python_Classes4MAD")
+import string
+import os
+import stat
+import re
+import math
+import csv
+import atexit
+from operator import itemgetter
+from optparse import OptionParser
+import shutil
+import gzip
+from datetime import datetime
+from numpy import *
+
+
+
+starttime=datetime.strptime('2018-04-28 16:01:00.000','%Y-%m-%d %H:%M:%S.%f')
+endtime=datetime.strptime('2018-04-28 18:14:00.000','%Y-%m-%d %H:%M:%S.%f')
+
+rdat=open('data.timber.BOFSU.eigenfreq.BCTFR.intensity.duringampdet.csv','r')
+csvrdat=csv.reader(rdat,delimiter=',',skipinitialspace=True)
+
+b1qxunperturbed=0.30975
+b1qyunperturbed=0.32
+b1qxcut=0.0004
+b1qycut=0.002
+
+b2qxunperturbed=0.3099
+b2qyunperturbed=0.3194
+b2qxcut=0.00025
+b2qycut=0.00015
+
+timerange=20
+
+alldata=[]
+B1X=[]
+B1Y=[]
+B2X=[]
+B2Y=[]
+thisvar=[]
+goodvar=False
+for row in csvrdat:
+    if len(row)==0:
+        continue
+    if re.search('SINGLE',row[0]) or re.search('DataType',row[0]) or re.search('Unit',row[0]) or re.search('Description',row[0]) or re.search('Timestamp',row[0]):
+        continue
+    if re.search('VARIABLE',row[0]):
+        goodvar=False
+        print row
+        if re.search('LHC.BOFSU:EIGEN_FREQ_1_B1',row[0]):
+            goodvar=True
+            thisvar=B1X
+        elif re.search('LHC.BOFSU:EIGEN_FREQ_2_B1',row[0]):
+            goodvar=True
+            thisvar=B1Y
+        elif re.search('LHC.BOFSU:EIGEN_FREQ_1_B2',row[0]):
+            goodvar=True
+            thisvar=B2X
+        elif re.search('LHC.BOFSU:EIGEN_FREQ_2_B2',row[0]):
+            goodvar=True
+            thisvar=B2Y
+        continue
+    if len(row)<=1:
+        continue
+    thistime=datetime.strptime(row[0],'%Y-%m-%d %H:%M:%S.%f')
+    BBQtune=float(row[1])
+    if thisvar==B1X:
+        if BBQtune>(b1qxunperturbed+b1qxcut) or BBQtune<(b1qxunperturbed-b1qxcut):
+            continue
+    elif thisvar==B2X:
+        if BBQtune>(b2qxunperturbed+b2qxcut) or BBQtune<(b2qxunperturbed-b2qxcut):
+            continue
+    elif thisvar==B1Y:
+        if BBQtune>(b1qyunperturbed+b1qycut) or BBQtune<(b1qyunperturbed-b1qycut):
+            continue
+    elif thisvar==B2Y:
+        if BBQtune>(b2qyunperturbed+b2qycut) or BBQtune<(b2qyunperturbed-b2qycut):
+            continue
+    if goodvar==True:
+        
+        thisvar.append([thistime,BBQtune])
+    else:
+        continue
+
+rdat.close()
+
+
+B1Xavgdata=[]
+B1Xgetrmsavg=[]
+for t in range(len(B1X)):
+    if B1X[t][0]<starttime or B1X[t][0]>endtime:
+        continue
+    else:
+        pass
+    thistime=B1X[t][0]
+    thisdata=[]
+    for q in range(t-timerange,t+timerange,1):
+        thisdata.append(B1X[q][1])
+    B1Xmeandat=mean(array(thisdata))
+    B1Xgetrmsavg.append(B1Xmeandat)
+    B1Xstddat=std(array(thisdata))
+    B1Xavgdata.append([thistime,B1Xmeandat,B1Xstddat])
+
+B1Yavgdata=[]
+B1Ygetrmsavg=[]
+for t in range(len(B1Y)):
+    if B1Y[t][0]<starttime or B1Y[t][0]>endtime:
+        continue
+    else:
+        pass
+    thistime=B1Y[t][0]
+    thisdata=[]
+    for q in range(t-timerange,t+timerange,1):
+        thisdata.append(B1Y[q][1])
+    B1Ymeandat=mean(array(thisdata))
+    B1Ygetrmsavg.append(B1Ymeandat)
+    B1Ystddat=std(array(thisdata))
+    B1Yavgdata.append([thistime,B1Ymeandat,B1Ystddat])
+
+B2Xavgdata=[]
+B2Xgetrmsavg=[]
+for t in range(len(B2X)):
+    if B2X[t][0]<starttime or B2X[t][0]>endtime:
+        continue
+    else:
+        pass
+    thistime=B2X[t][0]
+    thisdata=[]
+    for q in range(t-timerange,t+timerange,1):
+        thisdata.append(B2X[q][1])
+    B2Xmeandat=mean(array(thisdata))
+    B2Xgetrmsavg.append(B2Xmeandat)
+    B2Xstddat=std(array(thisdata))
+    B2Xavgdata.append([thistime,B2Xmeandat,B2Xstddat])
+
+B2Yavgdata=[]
+B2Ygetrmsavg=[]
+for t in range(len(B2Y)):
+    if B2Y[t][0]<starttime or B2Y[t][0]>endtime:
+        continue
+    else:
+        pass
+    thistime=B2Y[t][0]
+    thisdata=[]
+    for q in range(t-timerange,t+timerange,1):
+        thisdata.append(B2Y[q][1])
+    B2Ymeandat=mean(array(thisdata))
+    B2Ygetrmsavg.append(B2Ymeandat)
+    B2Ystddat=std(array(thisdata))
+    B2Yavgdata.append([thistime,B2Ymeandat,B2Ystddat])
+
+
+rms=std(array(B1Xgetrmsavg))
+print rms
+print mean(array(B1Xgetrmsavg))
+rms=std(array(B1Ygetrmsavg))
+print rms
+print mean(array(B1Ygetrmsavg))
+rms=std(array(B2Xgetrmsavg))
+print rms
+print mean(array(B2Xgetrmsavg))
+rms=std(array(B2Ygetrmsavg))
+print rms
+print mean(array(B2Ygetrmsavg))
+
+
+fout=open('data.BBQ.avg.'+str(timerange)+'s.b1x.dat','w')
+csvwout=csv.writer(fout,delimiter=' ')
+for t in range(len(B1Xavgdata)):
+    thistime=B1Xavgdata[t][0]
+    timestr1=thistime.strftime('%Y-%m-%d')
+    timestr2=thistime.strftime('%H:%M:%S.%f')
+    timestr2=timestr2[:-3]
+    csvwout.writerow([timestr1,timestr2,B1Xavgdata[t][1],B1Xavgdata[t][2]])
+fout.close()
+
+fout=open('data.BBQ.avg.'+str(timerange)+'s.b1y.dat','w')
+csvwout=csv.writer(fout,delimiter=' ')
+for t in range(len(B1Yavgdata)):
+    thistime=B1Yavgdata[t][0]
+    timestr1=thistime.strftime('%Y-%m-%d')
+    timestr2=thistime.strftime('%H:%M:%S.%f')
+    timestr2=timestr2[:-3]
+    csvwout.writerow([timestr1,timestr2,B1Yavgdata[t][1],B1Yavgdata[t][2]])
+fout.close()
+
+
+fout=open('data.BBQ.avg.'+str(timerange)+'s.b2x.dat','w')
+csvwout=csv.writer(fout,delimiter=' ')
+for t in range(len(B2Xavgdata)):
+    thistime=B2Xavgdata[t][0]
+    timestr1=thistime.strftime('%Y-%m-%d')
+    timestr2=thistime.strftime('%H:%M:%S.%f')
+    timestr2=timestr2[:-3]
+    csvwout.writerow([timestr1,timestr2,B2Xavgdata[t][1],B2Xavgdata[t][2]])
+fout.close()
+
+fout=open('data.BBQ.avg.'+str(timerange)+'s.b2y.dat','w')
+csvwout=csv.writer(fout,delimiter=' ')
+for t in range(len(B2Yavgdata)):
+    thistime=B2Yavgdata[t][0]
+    timestr1=thistime.strftime('%Y-%m-%d')
+    timestr2=thistime.strftime('%H:%M:%S.%f')
+    timestr2=timestr2[:-3]
+    csvwout.writerow([timestr1,timestr2,B2Yavgdata[t][1],B2Yavgdata[t][2]])
+fout.close()
+    
+
+
+sys.exit()

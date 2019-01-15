@@ -1,8 +1,8 @@
 import json
 import os
-from utils.plotting.plot_tfs import get_params, MANUAL_STYLE, _check_opt, ps, entrypoint, _get_data, _find_ir_pos, _get_auto_scale
+from udillyties.plotting import get_params, _check_opt, entrypoint, _get_data, _find_ir_pos, _get_auto_scale
 from predefined import get_scatter_for_df, get_horizontal_line, get_layout, xaxis_lhc
-import plotly
+
 
 @entrypoint(get_params(), strict=True)
 def plot(opt):

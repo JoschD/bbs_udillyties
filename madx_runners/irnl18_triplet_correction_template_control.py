@@ -80,12 +80,15 @@ class TemplateControl:
                 "CHROM": "3",
                 "NRJ": "7000.0",
                 # Settings
+                "ONDISP": "1",
                 "CALCCORRECTTRIP": "1",
                 "ARCERRORS": "1",
                 "CORRECTD2": "0",
                 "CORRECTMCBX": "0",
                 "LSF": "0",
                 "MOPOWER": "0",
+                "ONALICE": "0",
+                "ONLHCB": "0",
                 # Outputs
                 "NOMINALMACHINE": "",
                 "ARCAPPLIED": "",
@@ -236,7 +239,7 @@ class TemplateControl:
 
     def write_madx_job(self, output_path, errordef_path, seed,
                        beam, xing, error_types, optic_type,
-                       correct_by, measure_of_interest):
+                       correct_by, measure_of_interest, manual={}):
         """ Prepare the template content and write it into a job
 
         Args:
@@ -262,6 +265,7 @@ class TemplateControl:
         params.update(self._get_errortypes_params(error_types))
         params.update(self._get_output_snippets(output_path, beam, correct_by, measure_of_interest))
         params.update(self._get_corrections_params(output_path, beam, optic_type, correct_by))
+        params.update(manual)
 
         job_path = self._get_job_name(output_path, beam, correct_by)
         with open(job_path, "w") as f:

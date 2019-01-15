@@ -6,13 +6,12 @@ from matplotlib import pyplot as plt, gridspec, rcParams
 from matplotlib.backends.backend_pdf import PdfPages
 
 from utils.contexts import suppress_exception
-from utils.plotting import plot_style as ps
+from plotshop import plot_style as ps
 
 
 def plot_wrapper(data, layout, title):
     tick_length_before_rotation = 6
     # create figure
-    ps.set_style("standard", {u'grid.linestyle': u'--'})
     fig = plt.figure()
     fig.canvas.set_window_title(title)
     gs = gridspec.GridSpec(1, 1, height_ratios=[1])
@@ -100,12 +99,10 @@ def plot_wrapper(data, layout, title):
         ha = "right" if max_len > tick_length_before_rotation else "center"
         ax.yaxis.set_ticklabels(layout["yaxis"]["ticktext"], rotation=rot, ha=ha)
 
-    ncol = 3
-    nlines_legend = math.ceil(n_legend / 3.)
-    leg = ax.legend(loc='upper center', fancybox=True, shadow=True, ncol=ncol)
+    leg = ps.make_top_legend(ax, 3)
     # use _set_loc, makes finding the location later on easier
-    leg._set_loc((.3 if n_legend == 1 else .12, 1.05))
-    fig.tight_layout()
+    # leg._set_loc((-.7 if n_legend == 1 else -.88, 1.05))
+    # fig.tight_layout()
 
     return fig
 

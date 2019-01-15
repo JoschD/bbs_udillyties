@@ -8,7 +8,7 @@ sys.path.append(beta_beta_path)
 import madx_wrapper as madx
 from utils import iotools
 from utils.entrypoint import entrypoint, EntryPointParameters
-from utils.entry_datatypes import BoolOrList
+from utils.entry_datatypes import BoolOrList, DictAsString
 from utils import htcondor_wrapper as htc
 from utils import logging_tools
 
@@ -131,7 +131,7 @@ def get_params():
         flags="--duration",
         name="max_duration",
         help="Maximum duration to allow for htcondor jobs (ignored if run local).",
-        default="workday",
+        default="nextweek",
     )
     params.add_parameter(
         flags="--wother",
@@ -147,15 +147,20 @@ def get_params():
         default=[],
         help="List of unused stages.",
     )
+    params.add_parameter(
+        flags="--manual",
+        name="manual",
+        help="Manual override of parameters.",
+        type=DictAsString,
+        default={},
+    )
     return params
 
 
 @entrypoint(get_params(), strict=True)
 def main(opt):
     """ Main loop over all input variables """
-    if opt.error_locations is None:
-        opt.error_locations = ["ALL"]
-
+    opt = check_opt(opt)
     n_subs, n_jobs = get_number_of_jobs(opt)
     LOG.info("Creating {:d} submissions for {:d} madx-jobs.".format(n_subs, n_jobs))
     LOG.info("Starting main loop.")
@@ -192,6 +197,7 @@ def main(opt):
                                 beam, xing, error_types, error_loc, optic_type,
                                 opt.measure_of_interest,
                                 opt.with_other_corrections,
+                                opt.manual,
                             )
                             for njob in new_jobs:
                                 sequential_jobs.append(njob)
@@ -208,7 +214,7 @@ def main(opt):
 
 def create_madx_jobs(machine, seed_dir, errordef_dir, errordef_mask, seed,
                      beam, xing, error_types, error_loc, optic_type,
-                     measure_of_interest, do_other_corrections):
+                     measure_of_interest, do_other_corrections, manual):
     """ Create madx jobs for:
         - the full current setup (given by the loop parameter)
         - the correction of the other beam by means of the former results
@@ -230,7 +236,7 @@ def create_madx_jobs(machine, seed_dir, errordef_dir, errordef_mask, seed,
     jobs.append(control_tmplt.write_madx_job(
         path, errordef_path, seed,
         beam, xing, error_types, optic_type,
-        None, measure_of_interest)
+        None, measure_of_interest, manual)
     )
 
     if do_other_corrections:
@@ -239,7 +245,7 @@ def create_madx_jobs(machine, seed_dir, errordef_dir, errordef_mask, seed,
         jobs.append(control_tmplt.write_madx_job(
             path, errordef_path, seed,
             get_other_beam(beam), xing, error_types, optic_type,
-            correct_other_beam, measure_of_interest)
+            correct_other_beam, measure_of_interest, manual)
         )
 
         # corrected by the corrections of 30/30 round optics
@@ -250,7 +256,7 @@ def create_madx_jobs(machine, seed_dir, errordef_dir, errordef_mask, seed,
             jobs.append(control_tmplt.write_madx_job(
                 path, errordef_path, seed,
                 beam, xing, error_types, optic_type,
-                correct_3030, measure_of_interest)
+                correct_3030, measure_of_interest, manual)
             )
     return jobs
 
@@ -280,31 +286,31 @@ def get_nameparts_from_parameters(beam=None, xing=None, error_types=None, error_
     """ Creates strings from the parameters to be used in names """
     parts = []
 
-    if seed:
+    if seed is not None:
         parts.append("seed_{:04d}".format(seed))
 
-    if beam:
+    if beam is not None:
         parts.append("b{:d}".format(beam))
 
-    if optic_type:
+    if optic_type is not None:
         parts.append(optic_type)
 
-    if error_types:
+    if error_types is not None:
         parts.append("errors_{:s}".format("_".join(error_types)))
 
-    if error_loc:
+    if error_loc is not None:
         parts.append("in_all_IPs" if "ALL" == error_loc else "in_{:s}".format(error_loc))
 
-    if xing:
+    if xing is not None:
         xing_map = {
             True: "wXing",
             False: "noXing",
-            "else": "{:s}Xing",
+            "else": "wXing_in_{:s}",
         }
         try:
             parts.append(xing_map[xing])
         except KeyError:
-            parts.append(xing_map["else"].format(xing))
+            parts.append(xing_map["else"].format("_".join(xing)))
 
     return parts
 
@@ -323,14 +329,14 @@ def get_output_dir(seed_dir, xing, error_types, error_loc, optic_type):
 
 def get_seed_dir(cwd, seed):
     """ Build the seed-dir-name and create it. """
-    seed_dir = os.path.join(cwd, get_nameparts_from_parameters(seed=seed)[0])
+    seed_dir = os.path.join(cwd, "results_per_seed", get_nameparts_from_parameters(seed=seed)[0])
     iotools.create_dirs(seed_dir)
     return seed_dir
 
 
 def get_job_dir(cwd, id):
     """ Build the job-dir-name and create it. """
-    job_dir = os.path.join(cwd, id)
+    job_dir = os.path.join(cwd, "jobs", id)
     iotools.create_dirs(job_dir)
     return job_dir
 
@@ -372,6 +378,13 @@ def get_number_of_jobs(opt):
     return n_subs, n_jobs
 
 
+def check_opt(opt):
+    """ Check the opt structure """
+    if opt.error_locations is None:
+        opt.error_locations = ["ALL"]
+    return opt
+
+
 # Script Mode ##################################################################
 
 
@@ -381,4 +394,8 @@ if __name__ == '__main__':
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
     # main(entry_cfg="./irnl18_triplet_correction_configs/rdt_study.ini", section="B1XingOnOff")
-    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
+    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
+    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlySextupoles")
+    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlyHighpoles")
+    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXing255")
+    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsOffDisp")

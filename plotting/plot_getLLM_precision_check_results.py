@@ -31,7 +31,7 @@ def _add_repository_to_path():
 
 _add_repository_to_path()
 from tfs_files import tfs_pandas as tfs
-from utils.plotting import plot_style as ps
+from plotshop import plot_style as ps
 
 # take special care when subtracting phases
 phase_param_contains = ['phase', 'mu']

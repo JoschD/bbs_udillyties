@@ -24,7 +24,7 @@ sys.path.append(BETA_ROOT)
 from utils import logging_tools, iotools
 from global_correct_iterative import global_correction
 from generate_fullresponse_pandas import create_response
-from correction import check_calculated_corrections
+import check_calculated_corrections
 from correction import correct, correct_coupleDy
 from correction.fullresponse import generateFullResponse_parallel
 

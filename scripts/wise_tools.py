@@ -1,3 +1,5 @@
+""" Tools for modifying WISE errortables. """
+
 import os
 import shutil
 

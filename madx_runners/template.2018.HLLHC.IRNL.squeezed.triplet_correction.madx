@@ -37,12 +37,15 @@ correct_for_MCBX=%(CORRECTMCBX)s; ! Set this flag to correct the errors of MCBXF
 ! Other
 NRJ = %(NRJ)s;
 I_MO = %(MOPOWER)s;
+ON_DISP =%(ONDISP)s;  ! Correction of spurious dispersion
 
 !********************************************
 !General switch to select collision (0/1)
 ON_COLLISION:=0;
 !General switch to install bb lens (0/1)
 ON_BB_SWITCH:=0;
+
+ON_QPP     =0;  ! Correction of residual Q'' by MO's
 
 b_t_dist :=25.;  ! bunch separation [ns]
 emittance_norm := 2.5e-6;  ! normalized emittance
@@ -107,8 +110,6 @@ if (NRJ>5000.0000){
   elseif (optics_type == 2020) { call,file="slhc/squeeze2/opt_200_200_200_200_thin.madx"; }
   else {print, text="Optics Type not recognized"; stop;}
   
-  ON_QPP     :=0;  ! Correction of residual Q'' by MO's
-  ON_DISP    :=1;  ! Correction of spurious dispersion
   if (mylhcbeam<3){
     Beam,particle=proton,sequence=lhcb1,energy=NRJ,sigt=sigt_col,bv=1,NPART=Nb_0,sige=1.1e-4,ex=epsx,ey=epsy;
   };

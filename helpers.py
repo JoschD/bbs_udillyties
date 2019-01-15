@@ -52,8 +52,8 @@ def replace_pattern_in_filenames_by_str(folder, pattern, replace, filter=None, r
 def create_param_help_example():
     import amplitude_detuning_analysis
     create_param_help = CreateParamHelp()
-    create_param_help(amplitude_detuning_analysis, "_get_plot_params")
-    # create_param_help(amplitude_detuning_analysis)
+    # create_param_help(amplitude_detuning_analysis, "_get_plot_params")
+    create_param_help(amplitude_detuning_analysis)
 
 
 class CreateParamHelp(object):
@@ -142,6 +142,15 @@ def example_filter_tfs():
 
 
 # Script Mode ################################################################
+
+
+def set_legend_to_fixed_corrdinates(leg):
+    """ use _set_loc, makes finding the location later on easier """
+    leg.axes.figure.tight_layout()
+    leg.axes.figure.canvas.draw()
+    pos_in_ax_coords = leg.get_window_extent().inverse_transformed(leg.axes.transAxes).bounds
+    anchor_in_ax_coords = leg.get_bbox_to_anchor().inverse_transformed(leg.axes.transAxes).bounds
+    leg._set_loc(pos_in_ax_coords)
 
 
 if __name__ == '__main__':

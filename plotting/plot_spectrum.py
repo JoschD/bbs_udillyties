@@ -1,10 +1,9 @@
 import matplotlib.pyplot as plt
 import matplotlib.collections as mc
-from mpl_toolkits.mplot3d import Axes3D
 import numpy as np
 from numpy import fft
 import pandas as pd
-import utils.plotting.plot_style as ps
+import plotshop.plot_style as ps
 
 
 PI2I = np.pi*2j

@@ -1,0 +1,87 @@
+#0 is black
+#1 is red
+#2 is green
+#3 is navy
+#4 is purple
+#5 is turquoise
+#6 is yellow
+#7 is black
+#8 is orange
+#9 is grey
+
+set terminal postscript enhanced color 18
+set output "plot.2018commissioning.ampdet.30cm.wXing.movingavgBBQ.eps"
+
+sizex=1
+sizey=1
+set size sizex,1.05
+
+mytmargin=1.5
+mybmargin=3.5
+mylmargin=11
+myrmargin=1
+
+mysamplen=1
+
+linewidth=3
+linetype=1
+pointsize=0.3
+pointtype=7
+
+
+
+set multiplot
+
+#####################################################################
+## BBQtune
+reset
+#####################################################################
+starttime="2018-04-28 16:00:00"
+endtime="2018-04-28 18:20:00"
+ymin=0.3096
+ymax=0.3101
+set origin 0.0,0.0
+set size sizex,sizey
+
+
+set key samplen 2 width -2 horizontal at graph 0.0,1.1 right font ",14"
+set key top left
+set notitle
+
+
+
+set tmargin mytmargin
+set bmargin mybmargin
+set lmargin mylmargin
+set rmargin myrmargin
+
+
+set xdata time
+set timefmt "%Y-%m-%d %H:%M:%S"
+#set timefmt "%H:%M:%S"
+set format x "%H:%M"
+set xtics 1200
+set mxtics 2
+set ytics 1e-4
+set mytics 10
+
+set format y "%4.4f"
+
+set xlabel "Time [28/04/2018]"
+set ylabel "Q_{x,BBQ} moving AVG"
+
+
+set label "RMS(Q_{x}{/Symbol \261 10}s) = 2 {/Symbol \264} 10^{-5}" at endtime,(ymax+0.6*(ymax-ymin)/10) right font "Courier Bold,20" tc rgb "#3CB371"
+
+p[starttime:endtime][ymin:ymax]\
+"< sed -e 's/,/ /g' data.timber.BOFSU.eigenfreq.BCTFR.intensity.duringampdet.csv | awk '/VARIABLE/{ok=0}  /LHC.BOFSU:EIGEN_FREQ_1_B1/{ok=1} ok==1{print }' " u 1:3 w l lt 1 lw 0.5 lc rgb "#CD853F" t '',\
+"data.BBQ.avg.10s.b1x.dat"                            u 1:3 w l lt 1 lw 3   lc rgb "#3CB371" t '',\
+"data.BBQ.avg.20s.b1x.dat"                            u 1:3 w l lt 1 lw 2   lc rgb "#8B0000" t '',\
+\
+1/0 w l lt 1 lw 10 lc rgb "#3CB371" t 'AVG({/Symbol \261 10}s)',\
+1/0 w l lt 1 lw 10 lc rgb "#8B0000" t 'AVG({/Symbol \261 20}s)'
+
+#"getkickac.wBBQshifts.out" u 1:(ymax) w i lt 1 lw 2 lc 7 t '',\
+#\
+#1/0 w l lt 1 lw 10 lc rgb "#CD853F" t 'BBQ BOFSU',\
+#1/0 w l lt 1 lw 10 lc 7 t 'AC-dipole kicks',\

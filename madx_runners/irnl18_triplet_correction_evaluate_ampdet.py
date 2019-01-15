@@ -20,6 +20,7 @@ import irnl18_triplet_correction_template_control as tripcor_tmplt
 from tfs_files import tfs_pandas as tfs
 import udillyties.plotly_helpers.predefined as plotly_predef
 import udillyties.plotly_helpers.matplotlib_wrapper as mpl_wrap
+from matplotlib import pyplot as plt
 
 
 LOG = logging_tools.get_logger(__name__)
@@ -28,6 +29,10 @@ LOG = logging_tools.get_logger(__name__)
 AMPDET_FILENAME = "ptc_normal.ampdet.b{beam:d}.{id:s}.dat"  # see madx_snippets.py
 AMPDET_NAMES = ["ANHX1000", "ANHY0100", "ANHX0100"]
 SAME_OPTICS = "same_optics"  # identifyier to be replaced by optics in filename
+DEFAULT_OPTICS = "3030"  # optics to compare the correction by
+
+# plotting order so histograms look nice
+PLOT_STAGE_ORDER = ["errors_all", "errors_ip", "errors_mqx", "errors_mb_ip", "corrected", "errors_arc", "nominal"]
 
 
 def get_params():
@@ -37,26 +42,38 @@ def get_params():
 
 @entrypoint(get_params(), strict=True)
 def main(opt):
-    """ Main loop over all input variables """
+    """ Main function for separate plots for ampdet terms """
+    for output_folder, data, title in main_body(opt):
+        save_plot_data(output_folder, data, title, opt.optic_types)
+
+
+@entrypoint(get_params(), strict=True)
+def main_terms_oneplot(opt):
+    if len(opt.optic_types) > 1:
+        raise ValueError("This method runs only with one line")
+    """ Main function for separate plots for optic types """
+    for output_folder, data, title in main_body(opt):
+        save_plot_data_terms_oneplot(output_folder, data, title, opt.optic_types[0])
+
+
+def main_body(opt):
+    """ Same stuff for both mains """
     LOG.info("Starting main evaluation loop.")
+    opt = tripcor.check_opt(opt)
     output_folder = get_output_folder(opt.cwd)
-
-    prog_man, prog_bar = setup_progress_bar(tripcor.get_number_of_jobs(opt)[0]/len(opt.seeds))
-
     # main loop
     for beam, xing, error_types, error_loc in main_loop(opt):
-                    data = gather_plot_data(opt.cwd, opt.machine, beam, xing, error_types, error_loc,
-                                            opt.optic_types, opt.seeds, opt.unused_stages)
+        data = gather_plot_data(opt.cwd, opt.machine, beam, xing, error_types, error_loc,
+                                opt.optic_types, opt.seeds, opt.unused_stages)
 
-                    title = get_plot_title(beam, xing, error_types, error_loc)
-
-                    save_plot_data(output_folder, data, title, opt.optic_types)
-
-                    prog_bar.update()
-    prog_man.stop()
+        title = " ".join(p.replace("_", " ") for p in
+                         tripcor.get_nameparts_from_parameters(
+                             beam=beam, xing=xing, error_types=error_types, error_loc=error_loc))
+        yield output_folder, data, title
 
 
 def main_loop(opt):
+    """ Main loop over all input variables """
     return ((beam, xing, error_types, error_loc)
             for beam in opt.beams
             for xing in opt.xing
@@ -85,7 +102,7 @@ def gather_plot_data(cwd, machine, beam, xing, error_types, error_loc, optic_typ
                      for n in AMPDET_NAMES for i in ["AVG", "MIN", "MAX", "STD"]]
         )
         for output_id in _get_all_output_ids(machine, beam, unused_stages):
-            seed_data = pandas.DataFrame(
+            seed_data = tfs.TfsDataFrame(
                 index=seeds,
                 columns=AMPDET_NAMES,
             )
@@ -96,9 +113,16 @@ def gather_plot_data(cwd, machine, beam, xing, error_types, error_loc, optic_typ
                                  error_loc, optic_type, output_id
                                  )
                 )
-            label = output_id.replace("_", " ").replace("corrected by", "t by")
-            tfs.write_tfs(os.path.join(get_output_folder(cwd), "{:s}.{:s}.{:s}.tfs".format(
-                optic_type, output_id, "collected_seed_data")), seed_data, save_index="SEED")
+
+            label = get_label_from_id(output_id)
+            title, filename = get_seed_data_title_and_filename(
+                beam, xing, error_types, error_loc, optic_type, output_id
+            )
+            seed_data.headers["Title"] = title
+            seed_data = seed_data.astype(np.float64)
+            tfs.write_tfs(
+                os.path.join(get_output_folder(cwd), filename), seed_data, save_index="SEED"
+            )
             df.loc[label, :] = get_avg_and_error(seed_data)[df.columns].values
         data[optic_type] = df
     return data
@@ -141,9 +165,10 @@ def save_plot_data(cwd, data, title, line_names):
             lines += [go.Scatter(
                 x=list(range(len(df.index))),
                 y=list(df.loc[:, ampdet + "_AVG"]),
-                error_y =dict(
+                error_y=dict(
                     array=list(df.loc[:, ampdet + "_STD"]),
                     color=current_color,
+                    opacity=.5,
                 ),
                 mode='markers+lines',
                 name=line_name,
@@ -153,7 +178,7 @@ def save_plot_data(cwd, data, title, line_names):
             )]
 
         xaxis = dict(
-            range=[-0.1, len(df.index)],
+            range=[-0.1, len(df.index)-0.9],
             title=full_title,
             showgrid=True,
             ticks="outer",
@@ -171,8 +196,55 @@ def save_plot_data(cwd, data, title, line_names):
             f.write(json.dumps({'data': lines, 'layout': layout}))
 
 
+def save_plot_data_terms_oneplot(cwd, data, title, line_name):
+    title = title.split()
+    title.insert(1, line_name)
+    title = " ".join(title)
+
+    LOG.info("Writing plot for '{:s}'".format(title))
+    lines = []
+    color_cycle = ps.get_mpl_color()
+    for ampdet in AMPDET_NAMES:
+        df = data[line_name]
+        current_color = color_cycle.next()
+        lines += [go.Scatter(
+            x=list(range(len(df.index))),
+            y=list(df.loc[:, ampdet + "_AVG"]),
+            error_y=dict(
+                array=list(df.loc[:, ampdet + "_STD"]),
+                color=current_color,
+                opacity=.5,
+            ),
+            mode='markers+lines',
+            name=ampdet,
+            hoverinfo="y+text",
+            hovertext=list(df.index),
+            line=dict(color=current_color),
+        )]
+
+    xaxis = dict(
+        range=[-0.1, len(df.index)-0.9],
+        title=title,
+        showgrid=True,
+        ticks="outer",
+        ticktext=list(df.index),
+        tickvals=list(range(len(df.index)))
+    )
+
+    yaxis = dict(
+        title="Values",
+    )
+    layout = plotly_predef.get_layout(xaxis=xaxis, yaxis=yaxis)
+
+    output_file = os.path.join(cwd, (title).replace(" ", ".") + ".json")
+    with open(output_file, "w") as f:
+        f.write(json.dumps({'data': lines, 'layout': layout}))
+
+
 @entrypoint(get_params(), strict=True)
 def load_and_plot_all_saved(opt):
+    ps.set_style("standard", {u'grid.linestyle': u'--', u'errorbar.capsize': 2})
+    opt = tripcor.check_opt(opt)
     cwd = get_output_folder(opt.cwd)
     for file in os.listdir(cwd):
         if file.endswith(".json"):
@@ -181,6 +253,112 @@ def load_and_plot_all_saved(opt):
             fig.savefig(file.replace(".json", ".png"))
             fig.savefig(file.replace(".json", ".pdf"))
 
+
+@entrypoint(get_params(), strict=True)
+def make_histogram_plots(opt):
+    def loop(opt):
+        for beam, xing, error_types, error_loc in main_loop(opt):
+            for optic_type in opt.optic_types:
+                yield beam, xing, error_types, error_loc, optic_type
+
+    alpha_mean = .2
+    alpha_hist = .6
+    title = ""
+    ps.set_style('standard')
+    opt = tripcor.check_opt(opt)
+    cwd = get_output_folder(opt.cwd)
+    for beam, xing, error_types, error_loc, optic_type in loop(opt):
+        fig, axs = plt.subplots(len(AMPDET_NAMES), 1)
+        for idx_data, output_id in _ordered_output_ids(opt.machine, beam, opt.unused_stages):
+            title, filename = get_seed_data_title_and_filename(
+                beam, xing, error_types, error_loc, optic_type, output_id
+            )
+            seed_df = tfs.read_tfs(os.path.join(cwd, filename), index="SEED")
+            y_max = len(seed_df.index)
+            for idx_ax, term in enumerate(AMPDET_NAMES):
+                ax = axs[idx_ax]
+                data = seed_df[term]
+                x_pos = data.mean()
+
+                # plot mean
+                stem_cont = ax.stem([x_pos], [y_max], markerfmt="", basefmt="", label="_nolegend_")
+                plt.setp(stem_cont[1], color=ps.get_mpl_color(idx_data), alpha=alpha_mean)
+
+                # plot std
+                # error = data.std()
+                # ebar_cont = ax.errorbar(x_pos, y_max, xerr=error, color=ps.get_mpl_color(idx_data),
+                #                     label="_nolegend_", marker="")
+                # ps.change_ebar_alpha_for_line(ebar_cont, alpha_mean)
+
+                # plot histogram
+                data.hist(ax=ax, alpha=alpha_hist, color=ps.get_mpl_color(idx_data), label=output_id)
+
+        for idx_ax, term in enumerate(AMPDET_NAMES):
+            axs[idx_ax].set_xlabel(term)
+            axs[idx_ax].set_ylabel("Seeds")
+
+        legend = axs[0].legend()
+        _reorder_legend(legend, _get_all_output_ids(opt.machine, beam, opt.unused_stages))
+        ps.sync2d(axs)
+        title = " ".join(title.split(" ")[:-1])
+        figfilename = "{:s}.{:s}".format(title.replace(' ', '.'), "histogram")
+        fig.canvas.set_window_title(title)
+        make_bottom_text(axs[-1], title)
+        fig.savefig(os.path.join(cwd, figfilename + ".pdf"))
+        fig.savefig(os.path.join(cwd, figfilename + ".png"))
+
+@entrypoint(get_params(), strict=True)
+def make_histogram2_plots(opt):
+    def loop(opt):
+        for beam, xing, error_types, error_loc in main_loop(opt):
+            for optic_type in opt.optic_types:
+                yield beam, xing, error_types, error_loc, optic_type
+
+    alpha_mean = .2
+    alpha_hist = .6
+    title = ""
+    ps.set_style('standard')
+    opt = tripcor.check_opt(opt)
+    cwd = get_output_folder(opt.cwd)
+    for beam, xing, error_types, error_loc, optic_type in loop(opt):
+        output = _get_all_output_ids(opt.machine, beam, opt.unused_stages)
+        fig, axs = plt.subplots(len(output), 1)
+        for idx_ax, output_id in enumerate(output):
+            title, filename = get_seed_data_title_and_filename(
+                beam, xing, error_types, error_loc, optic_type, output_id
+            )
+            seed_df = tfs.read_tfs(os.path.join(cwd, filename), index="SEED")
+            y_max = len(seed_df.index)
+            for idx_data, term in enumerate(AMPDET_NAMES):
+                ax = axs[idx_ax]
+                data = seed_df[term]
+                x_pos = data.mean()
+
+                # plot mean
+                stem_cont = ax.stem([x_pos], [y_max], markerfmt="", basefmt="", label="_nolegend_")
+                plt.setp(stem_cont[1], color=ps.get_mpl_color(idx_data), alpha=alpha_mean)
+
+                # plot std
+                # error = data.std()
+                # ebar_cont = ax.errorbar(x_pos, y_max, xerr=error, color=ps.get_mpl_color(idx_data),
+                #                     label="_nolegend_", marker="")
+                # ps.change_ebar_alpha_for_line(ebar_cont, alpha_mean)
+
+                # plot histogram
+                data.hist(ax=ax, alpha=alpha_hist, color=ps.get_mpl_color(idx_data), label=term)
+
+        for idx_ax, output_id in enumerate(output):
+            axs[idx_ax].set_ylabel(output_id.replace("_", " "))
+
+        axs[-1].set_xlabel("Value")
+        ps.make_top_legend(axs[0], 4)
+        ps.sync2d(axs)
+        title = " ".join(title.split(" ")[:-1])
+        figfilename = "{:s}.{:s}".format(title.replace(' ', '.'), "histogram2")
+        fig.canvas.set_window_title(title)
+        make_bottom_text(axs[-1], title)
+        fig.savefig(os.path.join(cwd, figfilename + ".pdf"))
+        fig.savefig(os.path.join(cwd, figfilename + ".png"))
 
 # Naming Helper ################################################################
 
@@ -197,41 +375,67 @@ def get_tfs_name(cwd, machine, beam, seed, xing, error_types, error_loc, optic_t
     return os.path.join(output_dir, file_name)
 
 
-def get_plot_title(beam, xing, error_types, error_loc):
-    # xing
-    xing_map = {
-        True: "wXing",
-        False: "noXing",
-        "else": "{:s}Xing",
-    }
-    try:
-        xing_str = xing_map[xing]
-    except KeyError:
-        xing_str = xing_map["else"].format(xing)
-
-    # error_types
-    error_type_str = "errors {:s}".format(" ".join(error_types))
-
-    # error_loc
-    error_loc_str = "in all IPs" if "ALL" == error_loc else "in {:s}".format(error_loc)
-
-    return " ".join(["B{:d}".format(beam), xing_str,error_type_str, error_loc_str])
-
-
 def _get_all_output_ids(machine, beam, unused_stages):
     if "CORRECTED" in unused_stages:
         raise EnvironmentError("CORRECTED is not supposed to be filtered by UNUSED_STAGES.")
     out = [tripcor_tmplt.IDS[key] for key in tripcor_tmplt.STAGE_ORDER[machine] if key not in unused_stages]
-    corrected_by = out[-1] + "_by_b{:d}_{:s}"
-    out.append(corrected_by.format(tripcor.get_other_beam(beam), SAME_OPTICS))
-    out.append(corrected_by.format(beam, "3030"))
+    if machine == "LHC":
+        corrected_by = out[-1] + " _by_b{:d}_{:s}"
+        out.append(corrected_by.format(tripcor.get_other_beam(beam), SAME_OPTICS))
+        out.append(corrected_by.format(beam, DEFAULT_OPTICS))
     return out
 
 
+def _ordered_output_ids(machine, beam, unused_stages):
+    ids = _get_all_output_ids(machine, beam, unused_stages)
+    ordered = []
+    for stage in PLOT_STAGE_ORDER:
+        if stage in ids:
+            ordered.append(stage)
+        else:
+            # mainly for "corrected"
+            for id in [id for id in ids if id.startswith(stage)]:
+                ordered.append(id)
+    return enumerate(ordered)
+
+
+def get_label_from_id(id):
+    return id.replace("_", " ").replace("corrected by", "t by")
+
+
+def get_seed_data_title_and_filename(beam, xing, error_types, error_loc, optic_type, output_id):
+    parts = tripcor.get_nameparts_from_parameters(beam=beam, optic_type=optic_type, xing=xing,
+                error_types=error_types, error_loc=error_loc) + [get_label_from_id(output_id)]
+
+    title = " ".join(parts)
+    filename = ".".join(parts + ["seed_data"]) + ".tfs"
+    return title, filename
+
+
 def get_output_folder(cwd):
-    path = os.path.join(cwd, "plot_output")
+    path = os.path.join(cwd, "results_plot")
     iotools.create_dirs(path)
     return path
+
+
+def _reorder_legend(leg, ordered_labels):
+    ax = leg.axes
+    handles, labels = ax.get_legend_handles_labels()
+    sorting = [labels.index(l) for l in ordered_labels]
+    new_handles = np.array(handles)[sorting].tolist()
+    ps.make_top_legend(ax, 4, new_handles, ordered_labels)
+
+
+def make_bottom_text(ax, text):
+    xlim = ax.get_xlim()
+    xpos = xlim[0] + (xlim[1] - xlim[0]) * .5
+
+    axtr = ax.transData.inverted()  # Display -> Axes
+    figtr = ax.get_figure().transFigure  # Figure -> Display
+    ypos = axtr.transform(figtr.transform([0, 0.004]))[1]
+    ax.text(xpos, ypos, text, ha='center')
+    ax.get_figure().tight_layout()
+
 
 
 # Script Mode ##################################################################
@@ -247,4 +451,28 @@ if __name__ == '__main__':
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
     # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
 
-    main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="Test")
+    # main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
+    # make_histogram2_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
+
+
+    main_terms_oneplot(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
+    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
+    make_histogram2_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
+
+    # main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlySextupoles")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlySextupoles")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlySextupoles")
+    #
+    # main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlyHighpoles")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlyHighpoles")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlyHighpoles")
+    #
+    # main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXing255")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXing255")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXing255")
+    #
+    # main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsOffDisp")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsOffDisp")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsOffDisp")
