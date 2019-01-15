@@ -25,5 +25,12 @@ def rdt_test():
     twiss_opt.plot_rdts(["F1002", "F1020", "F2100"])
 
 
+def michi_test():
+    test_df = tfs.read_tfs("twiss_skew.tfs", index='NAME')
+    test_class = optics_class.TwissOptics(test_df)
+    # test_class.get_coupling(method="cmatrix")
+    coupling_rdts = test_class.get_rdts(rdt_names=['F1010', 'F1001'])
+
 if __name__ == '__main__':
-    rdt_test()
+    michi_test()
+    # rdt_test()
