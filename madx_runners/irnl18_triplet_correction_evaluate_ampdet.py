@@ -1,5 +1,7 @@
 import os
+import shutil
 import sys
+from matplotlib.backends.backend_pdf import PdfPages
 
 import enlighten
 import numpy as np
@@ -20,19 +22,132 @@ import irnl18_triplet_correction_template_control as tripcor_tmplt
 from tfs_files import tfs_pandas as tfs
 import udillyties.plotly_helpers.predefined as plotly_predef
 import udillyties.plotly_helpers.matplotlib_wrapper as mpl_wrap
-from matplotlib import pyplot as plt
-
+from matplotlib import pyplot as plt, gridspec, colors
 
 LOG = logging_tools.get_logger(__name__)
 
 
 AMPDET_FILENAME = "ptc_normal.ampdet.b{beam:d}.{id:s}.dat"  # see madx_snippets.py
 AMPDET_NAMES = ["ANHX1000", "ANHY0100", "ANHX0100"]
+YLABEL_MAP = {
+    "ANHX1000": r"$\partial Q_x/\partial 2J_x \, \left[ m^{-1} \right]$",
+    "ANHY1000": r"$\partial Q_y/\partial 2J_x \, \left[ m^{-1} \right]$",
+    "ANHX0100": r"$\partial Q_x/\partial 2J_y \, \left[ m^{-1} \right]$",
+    "ANHY0100": r"$\partial Q_y/\partial 2J_y \, \left[ m^{-1} \right]$",
+}
+
 SAME_OPTICS = "same_optics"  # identifyier to be replaced by optics in filename
 DEFAULT_OPTICS = "3030"  # optics to compare the correction by
 
 # plotting order so histograms look nice
 PLOT_STAGE_ORDER = ["errors_all", "errors_ip", "errors_mqx", "errors_mb_ip", "corrected", "errors_arc", "nominal"]
+
+
+# plotting style corrections
+MANUAL_STYLE_NORMAL = {u'figure.figsize': [6.4, 4.8], u'grid.linestyle': u'--', u'errorbar.capsize': 2}
+PLOT_STYLE = "standard"
+# MANUAL_STYLE_NORMAL = {u'figure.figsize': [8.00, 8.00], u'grid.linestyle': u'--', u'errorbar.capsize': 2}
+# PLOT_STYLE = "presentation"
+MANUAL_STYLE_HIST = {u'figure.figsize': [10.80, 19.20], u'axes.grid': False}
+
+LEGEND_COLS = 0
+
+CORRECTED_BY_OUTPUT = False
+
+
+# Quick Hacks ##############################################
+HACKS = True
+
+minmaxdict = {
+    "A5": {"min": -27000, "max": 25000},
+    "A6": {"min": -60000, "max": 30000},
+    "B4": {"min": -150000, "max": 155000},
+    "B5": {"min": -50000, "max": 70000},
+    "B6": {"min": -100000, "max": 70000},
+    "B5A5B6A6": {"min": -70000, "max": 120000},
+}
+
+color_index = ["noXing", "wXing_in_IP5", "wXing", "wXing_in_IP1"]
+
+measurement_dict = {
+    "b1_noXing_ANHX1000": [1600, 1100],
+    "b1_wXing_in_IP5_ANHX1000": [11200, 12000],
+    "b1_wXing_ANHX1000": [64600, 2400],
+
+    "b1_noXing_ANHX0100": [8100, 27800],
+    "b1_wXing_in_IP5_ANHX0100": [78500, 30100],
+
+    "b1_noXing_ANHY1000": [10300, 900],
+    "b1_wXing_in_IP5_ANHY1000": [-8900, 16000],
+    "b1_wXing_ANHY1000": [6500, 2500],
+
+    "b1_noXing_ANHY0100": [-6200, 2800],
+    "b1_wXing_in_IP5_ANHY0100": [6000, 3500],
+
+    "b2_noXing_ANHX1000": [-14900, 1100],
+    "b2_wXing_in_IP5_ANHX1000": [3200, 1000],
+
+    "b2_noXing_ANHX0100": [-2400, 1200],
+    "b2_wXing_in_IP5_ANHX0100": [-3800, 2600],
+
+    "b2_noXing_ANHY1000": [7600, 2500],
+    "b2_wXing_in_IP5_ANHY1000": [4100, 1400],
+
+    "b2_noXing_ANHY0100": [12400, 1500],
+    "b2_wXing_in_IP5_ANHY0100": [25200, 2400],
+}
+
+
+def hack_axis(xaxis, yaxis, current_params):
+    if not HACKS:
+        return
+    etypes = "".join(current_params["error_types"])
+    try:
+        range = minmaxdict[etypes]
+        yaxis.update(dict(range=[range["min"], range["max"]]))
+    except KeyError:
+        pass
+
+    # if current_params["beam"] == 1:
+    #     xaxis.update(dict(showticklabels=False))
+
+    # if current_params["ampdet"] != "ANHX1000":
+    #     yaxis.update(dict(showticklabels=False))
+    #     MANUAL_STYLE_NORMAL.update({u"figure.figsize": [8., 8.]})
+    # else:
+    #     MANUAL_STYLE_NORMAL.update({u"figure.figsize": [8.5, 8.]})
+
+
+def get_colors():
+    """ Insert a new color for line 2 to fit to measurements"""
+    if not HACKS:
+        return ps.get_mpl_color()
+    return (ps.get_mpl_color(i) for i in [0, 3, 1, 2, 4, 5, 6])
+
+
+def add_measurement_lines(current_data, lines):
+    """ Add horizontal lines to represent measurement data. """
+    ps.set_style(PLOT_STYLE, MANUAL_STYLE_NORMAL)
+    fig = plt.figure()
+    gs = gridspec.GridSpec(1, 1, height_ratios=[1])
+    ax = fig.add_subplot(gs[0])
+    for line in lines:
+        id = "_".join(["b{:d}".format(current_data["beam"]), line, current_data["ampdet"]])
+        try:
+            measdata = measurement_dict[id]
+        except KeyError:
+            pass
+        else:
+            low = measdata[0] - measdata[1]
+            upp = measdata[0] + measdata[1]
+            color = colors.to_rgba(ps.get_mpl_color(color_index.index(line)), .3)
+            ax.fill_between([0, len(PLOT_STAGE_ORDER)], 2 * [upp], 2 * [low],
+                            facecolor=color)
+            ax.plot([0, len(PLOT_STAGE_ORDER)], 2 * [measdata[0]], '--', color=color[0:3])
+    return fig
+
+
+# Entrypoint ###############################################
 
 
 def get_params():
@@ -41,35 +156,84 @@ def get_params():
 
 
 @entrypoint(get_params(), strict=True)
-def main(opt):
+def gather_all_data(opt):
     """ Main function for separate plots for ampdet terms """
-    for output_folder, data, title in main_body(opt):
-        save_plot_data(output_folder, data, title, opt.optic_types)
+    LOG.info("Starting main evaluation loop.")
+    opt = tripcor.check_opt(opt)
+    # main loop
+    for beam, xing, error_types, error_loc in main_loop(opt):
+        _gather_data(opt.cwd, opt.machine, beam, xing, error_types, error_loc,
+                     opt.optic_types, opt.seeds, opt.unused_stages)
 
 
 @entrypoint(get_params(), strict=True)
-def main_terms_oneplot(opt):
-    if len(opt.optic_types) > 1:
-        raise ValueError("This method runs only with one line")
+def plot_optic_types_oneplot(opt):
     """ Main function for separate plots for optic types """
-    for output_folder, data, title in main_body(opt):
-        save_plot_data_terms_oneplot(output_folder, data, title, opt.optic_types[0])
+    for output_folder, data, current_params in main_body(opt):
+        _plot_separate_ampdet(output_folder, data, current_params, opt.optic_types,
+                              id="all_optics")
+
+
+@entrypoint(get_params(), strict=True)
+def plot_ampdetterms_oneplot(opt):
+    """ Main function for single plot for optic types """
+    for output_folder, data, current_params in main_body(opt):
+        for otype in opt.optic_types:
+            current_params.update(dict(otype=otype))
+            _plot_all_ampdets_in_one(output_folder, data, current_params)
+
+
+@entrypoint(get_params(), strict=True)
+def plot_crossing_oneplot(opt):
+    """ Main function to put all crossing into one plot. """
+    LOG.info("Starting crossing evaluation loop.")
+    opt = tripcor.check_opt(opt)
+    output_folder = get_plot_output_folder(opt.cwd)
+
+    # for beam in opt.beams:
+    #     for otype in opt.optic_types:
+    #         for error_types in opt.error_types:
+    #             for error_loc in opt.error_locations:
+    #                 for xing in opt.xing:
+    #                     current_params = dict(beam=beam, optic_type=otype, error_types=error_types,
+    #                                           error_loc=error_loc, xing=xing)
+    #                     _update_min_max(_load_and_average_data(opt.cwd, opt.machine,
+    #                                                       beam, otype, xing,
+    #                                                       error_types, error_loc,
+    #                                                       opt.unused_stages), current_params)
+
+    for beam in opt.beams:
+        for otype in opt.optic_types:
+            for error_types in opt.error_types:
+                for error_loc in opt.error_locations:
+                    current_params = dict(beam=beam, optic_type=otype, error_types=error_types,
+                                          error_loc=error_loc)
+                    data = {}
+                    ordered = []
+                    for xing in opt.xing:
+                        id = tripcor.get_nameparts_from_parameters(xing=xing)[0]
+                        ordered.append(id)
+                        data[id] = _load_and_average_data(opt.cwd, opt.machine,
+                                                          beam, otype, xing,
+                                                          error_types, error_loc,
+                                                          opt.unused_stages)
+                    _plot_separate_ampdet(output_folder, data, current_params, ordered,
+                                          id="all_xing")
 
 
 def main_body(opt):
     """ Same stuff for both mains """
     LOG.info("Starting main evaluation loop.")
     opt = tripcor.check_opt(opt)
-    output_folder = get_output_folder(opt.cwd)
+    output_folder = get_plot_output_folder(opt.cwd)
     # main loop
     for beam, xing, error_types, error_loc in main_loop(opt):
-        data = gather_plot_data(opt.cwd, opt.machine, beam, xing, error_types, error_loc,
-                                opt.optic_types, opt.seeds, opt.unused_stages)
-
-        title = " ".join(p.replace("_", " ") for p in
-                         tripcor.get_nameparts_from_parameters(
-                             beam=beam, xing=xing, error_types=error_types, error_loc=error_loc))
-        yield output_folder, data, title
+        current_params = dict(beam=beam, xing=xing, error_types=error_types, error_loc=error_loc)
+        data = {}
+        for otype in opt.optic_types:
+            data[otype] = _load_and_average_data(opt.cwd, opt.machine, beam, otype, xing,
+                                                 error_types, error_loc, opt.unused_stages)
+        yield output_folder, data, current_params
 
 
 def main_loop(opt):
@@ -81,26 +245,12 @@ def main_loop(opt):
             for error_loc in opt.error_locations)
 
 
-def setup_progress_bar(length):
-    prog_man = enlighten.get_manager()
-    prog_bar = prog_man.counter(
-        total=length,
-        desc="Plots: ",
-    )
-    return prog_man, prog_bar
-
-
 # Data Gathering ###############################################################
 
 
-def gather_plot_data(cwd, machine, beam, xing, error_types, error_loc, optic_types, seeds, unused_stages):
-    """ Gather the data for a single plot """
-    data = {}
+def _gather_data(cwd, machine, beam, xing, error_types, error_loc, optic_types, seeds, unused_stages):
+    """ Gather the data and write it to a file """
     for optic_type in optic_types:
-        df = pandas.DataFrame(
-            columns=["{}_{}".format(n, i)
-                     for n in AMPDET_NAMES for i in ["AVG", "MIN", "MAX", "STD"]]
-        )
         for output_id in _get_all_output_ids(machine, beam, unused_stages):
             seed_data = tfs.TfsDataFrame(
                 index=seeds,
@@ -114,18 +264,33 @@ def gather_plot_data(cwd, machine, beam, xing, error_types, error_loc, optic_typ
                                  )
                 )
 
-            label = get_label_from_id(output_id)
             title, filename = get_seed_data_title_and_filename(
                 beam, xing, error_types, error_loc, optic_type, output_id
             )
             seed_data.headers["Title"] = title
             seed_data = seed_data.astype(np.float64)
+            LOG.info("Gathered data for '{:s}'".format(title))
             tfs.write_tfs(
-                os.path.join(get_output_folder(cwd), filename), seed_data, save_index="SEED"
+                os.path.join(get_data_output_folder(cwd), filename), seed_data, save_index="SEED"
             )
-            df.loc[label, :] = get_avg_and_error(seed_data)[df.columns].values
-        data[optic_type] = df
-    return data
+
+
+def _load_and_average_data(cwd, machine, beam, optic_type, xing, error_types, error_loc, unused_stages):
+    """ Load gathered data for a single plot from file """
+    df = pandas.DataFrame(
+        columns=["{}_{}".format(n, i)
+                 for n in AMPDET_NAMES for i in ["AVG", "MIN", "MAX", "STD"]]
+    )
+    for output_id in _get_all_output_ids(machine, beam, unused_stages):
+        _, filename = get_seed_data_title_and_filename(
+            beam, xing, error_types, error_loc, optic_type, output_id
+        )
+        seed_data = tfs.read_tfs(
+            os.path.join(get_data_output_folder(cwd), filename), index="SEED"
+        )
+        label = get_label_from_id(output_id)
+        df.loc[label, :] = get_avg_and_error(seed_data)[df.columns].values
+    return df
 
 
 def get_values_from_tfs(tfs_path):
@@ -152,13 +317,43 @@ def get_avg_and_error(data):
 # Plotting #####################################################################
 
 
-def save_plot_data(cwd, data, title, line_names):
+def _update_min_max(df, current_params):
+    d = minmaxdict
+    etypes = "".join(current_params["error_types"])
+    if etypes not in minmaxdict:
+        d[etypes] = {}
+
     for ampdet in AMPDET_NAMES:
-        full_title = "{} {}".format(title, ampdet)
-        LOG.info("Writing plot for '{:s}'".format(full_title))
+        if ampdet not in d[etypes]:
+            d[etypes][ampdet] = dict(min=None, max=None)
+
+        min = np.min(df.loc[:, ampdet + "_AVG"] - df.loc[:, ampdet + "_STD"])
+        max = np.max(df.loc[:, ampdet + "_AVG"] + df.loc[:, ampdet + "_STD"])
+
+        if d[etypes][ampdet]["min"] is None or d[etypes][ampdet]["min"] > min:
+            d[etypes][ampdet]["min"] = min
+
+        if d[etypes][ampdet]["max"] is None or d[etypes][ampdet]["max"] < max:
+            d[etypes][ampdet]["max"] = max
+
+
+def _plot_separate_ampdet(cwd, data, current_params, line_names, id=None):
+    """ Writing separate plots for Ampdet Terms """
+    for ampdet in AMPDET_NAMES:
+        title = get_plot_title(current_params)
+        output_file = os.path.join(cwd, title.replace(" ", ".") + "." + ampdet)
+        if id:
+            output_file += "." + id
+        if title[0] == "b":
+            title = "Beam" + title[1:]
+        LOG.info("Writing plot for '{:s}'".format(title))
 
         lines = []
-        color_cycle = ps.get_mpl_color()
+
+        current_params.update(dict(ampdet=ampdet))
+        fig = add_measurement_lines(current_params, line_names)
+
+        color_cycle = get_colors()
         for line_name in line_names:
             df = data[line_name]  # assumes all df here have the same indices
             current_color = color_cycle.next()
@@ -171,7 +366,7 @@ def save_plot_data(cwd, data, title, line_names):
                     opacity=.5,
                 ),
                 mode='markers+lines',
-                name=line_name,
+                name=line_name.replace("_", " "),
                 hoverinfo="y+text",
                 hovertext=list(df.index),
                 line=dict(color=current_color),
@@ -179,7 +374,7 @@ def save_plot_data(cwd, data, title, line_names):
 
         xaxis = dict(
             range=[-0.1, len(df.index)-0.9],
-            title=full_title,
+            # title=title,
             showgrid=True,
             ticks="outer",
             ticktext=list(df.index),
@@ -187,87 +382,75 @@ def save_plot_data(cwd, data, title, line_names):
         )
 
         yaxis = dict(
-            title=ampdet,
+            title=YLABEL_MAP[ampdet],
         )
+
+        hack_axis(xaxis, yaxis, current_params)
+        current_params.pop("ampdet")
+
         layout = plotly_predef.get_layout(xaxis=xaxis, yaxis=yaxis)
-
-        output_file = os.path.join(cwd, full_title.replace(" ", ".") + ".json")
-        with open(output_file, "w") as f:
-            f.write(json.dumps({'data': lines, 'layout': layout}))
+        _plot_and_output(output_file, lines, layout, title, fig)
 
 
-def save_plot_data_terms_oneplot(cwd, data, title, line_name):
-    title = title.split()
-    title.insert(1, line_name)
-    title = " ".join(title)
+def _plot_all_ampdets_in_one(cwd, data, current_params):
+    """ Plots all ampdet terms into one plot """
+    title = get_plot_title(current_params)
+    output_file = os.path.join(cwd, title.replace(" ", ".") + ".allampdet")
+    if title[0] == "b":
+        title = "Beam" + title[1:]
 
     LOG.info("Writing plot for '{:s}'".format(title))
     lines = []
     color_cycle = ps.get_mpl_color()
     for ampdet in AMPDET_NAMES:
-        df = data[line_name]
         current_color = color_cycle.next()
         lines += [go.Scatter(
-            x=list(range(len(df.index))),
-            y=list(df.loc[:, ampdet + "_AVG"]),
+            x=list(range(len(data.index))),
+            y=list(data.loc[:, ampdet + "_AVG"]),
             error_y=dict(
-                array=list(df.loc[:, ampdet + "_STD"]),
+                array=list(data.loc[:, ampdet + "_STD"]),
                 color=current_color,
                 opacity=.5,
             ),
             mode='markers+lines',
             name=ampdet,
             hoverinfo="y+text",
-            hovertext=list(df.index),
+            hovertext=list(data.index),
             line=dict(color=current_color),
         )]
 
     xaxis = dict(
-        range=[-0.1, len(df.index)-0.9],
+        range=[-0.1, len(data.index)-0.9],
         title=title,
         showgrid=True,
         ticks="outer",
-        ticktext=list(df.index),
-        tickvals=list(range(len(df.index)))
+        ticktext=list(data.index),
+        tickvals=list(range(len(data.index)))
     )
 
     yaxis = dict(
-        title="Values",
+        title="Values  [$m^{-1}$] ",
     )
     layout = plotly_predef.get_layout(xaxis=xaxis, yaxis=yaxis)
-
-    output_file = os.path.join(cwd, (title).replace(" ", ".") + ".json")
-    with open(output_file, "w") as f:
-        f.write(json.dumps({'data': lines, 'layout': layout}))
+    _plot_and_output(output_file, lines, layout, title)
 
 
-@entrypoint(get_params(), strict=True)
-def load_and_plot_all_saved(opt):
-    ps.set_style("standard", {u'grid.linestyle': u'--', u'errorbar.capsize': 2})
-    opt = tripcor.check_opt(opt)
-    cwd = get_output_folder(opt.cwd)
-    for file in os.listdir(cwd):
-        if file.endswith(".json"):
-            file = os.path.join(cwd, file)
-            fig = mpl_wrap.plot_from_json(file)
-            fig.savefig(file.replace(".json", ".png"))
-            fig.savefig(file.replace(".json", ".pdf"))
+def hist_loop(opt):
+    for beam, xing, error_types, error_loc in main_loop(opt):
+        for optic_type in opt.optic_types:
+            yield beam, xing, error_types, error_loc, optic_type
 
 
 @entrypoint(get_params(), strict=True)
 def make_histogram_plots(opt):
-    def loop(opt):
-        for beam, xing, error_types, error_loc in main_loop(opt):
-            for optic_type in opt.optic_types:
-                yield beam, xing, error_types, error_loc, optic_type
-
     alpha_mean = .2
     alpha_hist = .6
     title = ""
     ps.set_style('standard')
     opt = tripcor.check_opt(opt)
-    cwd = get_output_folder(opt.cwd)
-    for beam, xing, error_types, error_loc, optic_type in loop(opt):
+    cwd = get_data_output_folder(opt.cwd)
+    output_folder = get_plot_output_folder(opt.cwd)
+    for beam, xing, error_types, error_loc, optic_type in hist_loop(opt):
         fig, axs = plt.subplots(len(AMPDET_NAMES), 1)
         for idx_data, output_id in _ordered_output_ids(opt.machine, beam, opt.unused_stages):
             title, filename = get_seed_data_title_and_filename(
@@ -304,23 +487,20 @@ def make_histogram_plots(opt):
         figfilename = "{:s}.{:s}".format(title.replace(' ', '.'), "histogram")
         fig.canvas.set_window_title(title)
         make_bottom_text(axs[-1], title)
-        fig.savefig(os.path.join(cwd, figfilename + ".pdf"))
-        fig.savefig(os.path.join(cwd, figfilename + ".png"))
+        fig.savefig(os.path.join(output_folder, figfilename + ".pdf"))
+        fig.savefig(os.path.join(output_folder, figfilename + ".png"))
+
 
 @entrypoint(get_params(), strict=True)
 def make_histogram2_plots(opt):
-    def loop(opt):
-        for beam, xing, error_types, error_loc in main_loop(opt):
-            for optic_type in opt.optic_types:
-                yield beam, xing, error_types, error_loc, optic_type
-
     alpha_mean = .2
     alpha_hist = .6
     title = ""
-    ps.set_style('standard')
+    ps.set_style('standard', MANUAL_STYLE_HIST)
     opt = tripcor.check_opt(opt)
-    cwd = get_output_folder(opt.cwd)
-    for beam, xing, error_types, error_loc, optic_type in loop(opt):
+    cwd = get_data_output_folder(opt.cwd)
+    output_folder = get_plot_output_folder(opt.cwd)
+    for beam, xing, error_types, error_loc, optic_type in hist_loop(opt):
         output = _get_all_output_ids(opt.machine, beam, opt.unused_stages)
         fig, axs = plt.subplots(len(output), 1)
         for idx_ax, output_id in enumerate(output):
@@ -357,8 +537,8 @@ def make_histogram2_plots(opt):
         figfilename = "{:s}.{:s}".format(title.replace(' ', '.'), "histogram2")
         fig.canvas.set_window_title(title)
         make_bottom_text(axs[-1], title)
-        fig.savefig(os.path.join(cwd, figfilename + ".pdf"))
-        fig.savefig(os.path.join(cwd, figfilename + ".png"))
+        fig.savefig(os.path.join(output_folder, figfilename + ".pdf"))
+        fig.savefig(os.path.join(output_folder, figfilename + ".png"))
 
 # Naming Helper ################################################################
 
@@ -380,9 +560,10 @@ def _get_all_output_ids(machine, beam, unused_stages):
         raise EnvironmentError("CORRECTED is not supposed to be filtered by UNUSED_STAGES.")
     out = [tripcor_tmplt.IDS[key] for key in tripcor_tmplt.STAGE_ORDER[machine] if key not in unused_stages]
     if machine == "LHC":
-        corrected_by = out[-1] + " _by_b{:d}_{:s}"
-        out.append(corrected_by.format(tripcor.get_other_beam(beam), SAME_OPTICS))
-        out.append(corrected_by.format(beam, DEFAULT_OPTICS))
+        corrected_by = out[-1] + "_by_b{:d}_{:s}"
+        if CORRECTED_BY_OUTPUT:
+            out.append(corrected_by.format(tripcor.get_other_beam(beam), SAME_OPTICS))
+            out.append(corrected_by.format(beam, DEFAULT_OPTICS))
     return out
 
 
@@ -400,7 +581,7 @@ def _ordered_output_ids(machine, beam, unused_stages):
 
 
 def get_label_from_id(id):
-    return id.replace("_", " ").replace("corrected by", "t by")
+    return id.replace("_", " ").replace("corrected by", "")
 
 
 def get_seed_data_title_and_filename(beam, xing, error_types, error_loc, optic_type, output_id):
@@ -412,8 +593,14 @@ def get_seed_data_title_and_filename(beam, xing, error_types, error_loc, optic_t
     return title, filename
 
 
-def get_output_folder(cwd):
+def get_plot_output_folder(cwd):
     path = os.path.join(cwd, "results_plot")
+    iotools.create_dirs(path)
+    return path
+
+
+def get_data_output_folder(cwd):
+    path = os.path.join(cwd, "results_gathered")
     iotools.create_dirs(path)
     return path
 
@@ -432,24 +619,76 @@ def make_bottom_text(ax, text):
 
     axtr = ax.transData.inverted()  # Display -> Axes
     figtr = ax.get_figure().transFigure  # Figure -> Display
-    ypos = axtr.transform(figtr.transform([0, 0.004]))[1]
+    ypos = axtr.transform(figtr.transform([0, 0.001]))[1]
     ax.text(xpos, ypos, text, ha='center')
-    ax.get_figure().tight_layout()
 
 
+def _plot_and_output(path, data, layout, title, fig=None):
+    ps.set_style(PLOT_STYLE, MANUAL_STYLE_NORMAL)
+    fig = mpl_wrap.plot_wrapper(data, layout, title, LEGEND_COLS, fig)
+    fig.tight_layout()
+    with open(path + ".json", "w") as f:
+        f.write(json.dumps({'data': data, 'layout': layout}))
+    fig.savefig(path + ".png")
+    fig.savefig(path + ".pdf")
+    # mpdf = PdfPages(path + ".pdf")
+    # mpdf.savefig(figure=fig, bbox_inches='tight')
+    # mpdf.close()
+
+
+def get_plot_title(current_params):
+    title = " ".join(tripcor.get_nameparts_from_parameters(**current_params)).replace("_", " ")
+    return title
+
+
+def copy_to_pres(src, dst):
+    for file in os.listdir(src):
+        if file.endswith(".pdf"):
+            shutil.copy(
+                os.path.join(src, file),
+                os.path.join(dst, file),
+            )
 
 # Script Mode ##################################################################
 
 
 if __name__ == '__main__':
-    # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
-    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    # plot_crossing_oneplot(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="ForTest")
+
+    # gather_all_data(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="FlatOrbit")
+    # gather_all_data(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP1")
+    # gather_all_data(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP5")
+    # gather_all_data(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="AllErrorsCrossingIP5")
+    # gather_all_data(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="AllErrorsNotCrossingIP5")
+
+    plot_crossing_oneplot(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="ForPlotSingleError")
+    plot_crossing_oneplot(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="ForPlotAllErrors")
+    # plot_crossing_oneplot(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP1")
+    # plot_crossing_oneplot(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP5")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="FlatOrbit")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP1")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP5")
+
+    # plot_crossing_oneplot(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="ForTest")
+    # plt.show()
+    copy_to_pres("/home/jdilly/link_afs_work/private/STUDY.18.LHC.MD3311/results_plot",
+                 "/media/jdilly/Storage/Projects/NOTE.18.MD3311.Amplitude_Detuning/results.md_note/results/simulation")
     #
+    # copy_to_pres("/home/jdilly/link_afs_work/private/STUDY.18.LHC.MD3311/results_plot",
+    #              "/media/jdilly/Storage/Projects/NOTE.18.MD3311.Amplitude_Detuning/results.180128.for_omc/images")
+    # main(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP5")
+    # main(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP1")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    # make_histogram2_plots(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+    # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingOnOff")
+
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
     # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
+    # make_histogram2_plots(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP1")
     #
     # main(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
     # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
+    # make_histogram2_plots(entry_cfg="./irnl18_triplet_correction_configs/ampdet_study.ini", section="XingIP5")
 
     # main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
     # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
@@ -457,9 +696,9 @@ if __name__ == '__main__':
     # make_histogram_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrors")
 
 
-    main_terms_oneplot(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
-    load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
-    make_histogram2_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
+    # main_terms_oneplot(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
+    # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
+    # make_histogram2_plots(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="AllErrorsXingTest")
 
     # main(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlySextupoles")
     # load_and_plot_all_saved(entry_cfg="./irnl18_triplet_correction_configs/hllhc_ampdet_study.ini", section="OnlySextupoles")

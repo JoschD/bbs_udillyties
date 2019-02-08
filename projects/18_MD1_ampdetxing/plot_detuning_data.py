@@ -6,7 +6,11 @@ from collections import OrderedDict
 from tfs_files import tfs_pandas
 from plotshop import plot_style
 
-BASE_DIR = "/media/jdilly/Storage/Projects/NOTE.18.MD1_Amplitude_Detuning/overleaf/results/"
+BASE_DIR = "/media/jdilly/Storage/Projects/NOTE.18.MD3311.Amplitude_Detuning/results.md_note/results/"
+OUT_DIR = "/media/jdilly/Storage/Projects/NOTE.18.MD3311.Amplitude_Detuning/results.180128.for_omc/results/"
+# PRES_MODE = True
+OUT_DIR = BASE_DIR
+PRES_MODE = False
 
 DATA = {
     "plot.2018.b1.hkicks.full.flat.ip5xing": OrderedDict([
@@ -32,7 +36,6 @@ DATA = {
     ]),
 }
 
-PRES_MODE = False
 
 if __name__ == '__main__':
     plot_style.set_style("standard")
@@ -48,9 +51,10 @@ if __name__ == '__main__':
             df[key] = tfs_pandas.read_tfs(data[key])
 
         for tune_plane in "XY":
-            fig = plt.figure(figsize=[8, 6.5])
-            if PRES_MODE:
-                fig = plt.figure()
+            if not PRES_MODE:
+                fig = plt.figure(figsize=[8, 6.5])
+            else:
+                fig = plt.figure(figsize=[10, 10])
             ax = fig.gca()
             for idx, key in enumerate(df.keys()):
                 plot_data = tune_analysis.kickac_modifiers.get_ampdet_data(df[key],
@@ -77,6 +81,9 @@ if __name__ == '__main__':
                 plot_odr["color"] = colors.to_rgba(plot_data["color"], .8)
                 # plot_odr["y"] *= 1E3
 
+                ax.fill_between(plot_odr["x"], plot_odr.pop("ylower"), plot_odr.pop("yupper"),
+                                facecolor=plot_odr["color"][:3] + (.3,))
+
                 ax.errorbar(**plot_data)
                 ax.plot(plot_odr.pop("x"), plot_odr.pop("y"), **plot_odr)
 
@@ -97,6 +104,6 @@ if __name__ == '__main__':
 
             fig_name = "{:s}{:s}.J{:s}Q{:s}.pdf".format(pres_label, data_key,
                                                         action_plane, tune_plane)
-            fig.savefig(BASE_DIR + fig_name)
+            fig.savefig(OUT_DIR + fig_name)
     plt.show()
 

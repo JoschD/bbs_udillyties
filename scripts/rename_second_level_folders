@@ -1,0 +1,28 @@
+import os
+import sys
+import shutil
+
+
+ROOT = "/home/jdilly/link_afs_work/private/STUDY.18.ampdet_flatoptics/results_per_seed"
+
+def main(root):
+    for dir in os.listdir(root):
+        dir_path = os.path.join(root, dir)
+        for subdir in reversed(os.listdir(dir_path)):
+            subdir_path = os.path.join(dir_path, subdir)
+            if os.path.isdir(subdir_path):
+                if subdir.endswith("noXing"):
+                    print "Removing : " + subdir_path
+                    shutil.rmtree(subdir_path)
+                elif not subdir.endswith("Xing"):
+                    print "Renaming : " + subdir_path
+                    os.rename(subdir_path, subdir_path + ".noXing")
+
+
+if __name__ == '__main__':
+    try:
+        root = sys.argv[1]
+    except IndexError:
+        root = ROOT
+
+    # main(root)

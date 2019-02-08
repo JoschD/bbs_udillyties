@@ -3,7 +3,7 @@ from plotshop import post_processing
 from figure_editor import main as figedit
 from matplotlib import pyplot as plt
 
-BASE_DIR = "/media/jdilly/Storage/Projects/NOTE.18.MD1_Amplitude_Detuning/overleaf/results/"
+BASE_DIR = "/media/jdilly/Storage/Projects/NOTE.18.MD3311.Amplitude_Detuning/results.md_note/results/"
 SHOW_PLOTS = False
 XLIM = [0., 0.017]
 YLIM = [-.001, 0.0008]
@@ -331,14 +331,14 @@ def get_commish_plots_b1_x():
 
 if __name__ == '__main__':
     figs_com = get_commish_plots_b1_x()
-    # figs_new = get_new_plots_b1_x_flat()
-    # figs_new = get_new_plots_b1_x_ip5xing()
-    # figs_new = get_new_plots_b1_y_flat()
-    # figs_new = get_new_plots_b1_y_ip5xing()
-    # figs_new = get_new_plots_b1_y_flat_qshift()
-    # figs_new = get_new_plots_b1_y_ip5xing_qshift()
-    # figs_new = get_new_plots_b2_x_flat()
-    # figs_new = get_new_plots_b2_x_ip5xing()
-    # figs_new = get_new_plots_b2_y_flat()
-    # figs_new = get_new_plots_b2_y_ip5xing()
-    plt.show()
+    figs_new = get_new_plots_b1_x_flat()
+    figs_new = get_new_plots_b1_x_ip5xing()
+    figs_new = get_new_plots_b1_y_flat()
+    figs_new = get_new_plots_b1_y_ip5xing()
+    figs_new = get_new_plots_b1_y_flat_qshift()
+    figs_new = get_new_plots_b1_y_ip5xing_qshift()
+    figs_new = get_new_plots_b2_x_flat()
+    figs_new = get_new_plots_b2_x_ip5xing()
+    figs_new = get_new_plots_b2_y_flat()
+    figs_new = get_new_plots_b2_y_ip5xing()
+    # plt.show()

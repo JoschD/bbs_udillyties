@@ -16,7 +16,7 @@ from tfs_files import tfs_pandas as tfs
 LOG = logging_tools.get_logger(__name__)
 
 
-# Renaming ###################################################################
+# Files ########################################################################
 
 
 def replace_pattern_in_filenames_by_str(folder, pattern, replace, filter=None, recursive=False, test=False):
@@ -44,6 +44,31 @@ def replace_pattern_in_filenames_by_str(folder, pattern, replace, filter=None, r
                     shutil.move(src, dst)
         if not recursive:
             break
+
+
+def find_file_by_pattern(folder, pattern, recursive=False):
+    """ Finds files by pattern in folder.
+
+    Args:
+        folder: folder to search in for files
+        pattern: pattern they should have
+        recursive: do it recursively
+
+    Returns:
+        List of absolute paths
+    """
+
+    regex = re.compile(pattern)
+    files_list = []
+    for root, dirs, files in os.walk(folder):
+        for file in files:
+            if regex.search(file):
+                path = os.path.join(root, file)
+                LOG.debug("Found '{}'".format(path))
+                files_list.append(path)
+        if not recursive:
+            break
+    return files_list
 
 
 # Entry Point ################################################################

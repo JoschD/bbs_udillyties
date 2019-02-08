@@ -20,7 +20,7 @@ CORRECTIONS_FILENAME = "MCX.setting.{:s}.{:s}.mad"
 
 STAGE_ORDER = {
     "LHC": ["NOMINALMACHINE", "ARCAPPLIED", "MQXAPPLIED",  "MBIPAPPLIED",
-             "ALLAPPLIED", "CORRECTED"],
+            "ALLAPPLIED", "CORRECTED"],
     "HLLHC": ["NOMINALMACHINE", "ARCAPPLIED", "IPAPPLIED",  "CORRECTED"],
 }
 
@@ -36,16 +36,12 @@ IDS = {
     "CORRECTED": "corrected"
 }
 
-SUPPORTED_MACHINES = ["LHC", "HLLHC"]
 
 
-class TemplateControl:
+class MadxTemplateControl:
 
-    def __init__(self, machine):
-        if machine not in SUPPORTED_MACHINES:
-            raise NotImplementedError("Machine '{:s}' not implemented.".format(machine))
-        self.machine = machine
-        self.template = self._get_template_for_machine(machine)
+    def __init__(self):
+        self.template = self._get_template()
 
     # Params #######################################################################
     def _get_default_parameters(self, new_values):
@@ -70,8 +66,6 @@ class TemplateControl:
                 "MBIPAPPLIED": "",
                 "ALLAPPLIED": "",
                 "CORRECTED": "",
-                #other
-                "OFF5V": "0",
             }
         elif self.machine == "HLLHC":
             no_default = ["BEAM", "TYPE", "ERRORDEF", "CORRECTIONS"]
@@ -118,35 +112,33 @@ class TemplateControl:
 
     def _get_crossing_params_for_optics(self, optic_type, xing):
         """ Return the crossing parameters for optics type and crossing scheme """
-        if optic_type[0:2] == optic_type[2:4]:
-            otype = "round"
-        else:
-            otype = "flat"
-
         if self.machine == "LHC":
-            if optic_type == "flat":
-                raise NotImplementedError("CHECK SEPARATION SIGNS FOR FLAT ORBIT!!")
             mapping = {
                 "round": {
-                    "IP1": {"XING1": "160", "PHI1": "90", "SEP1": "-0.55"},
-                    "IP5": {"XING5": "160", "PHI5": "0",  "SEP5": "0.55"},
+                    "IP1": {"XING1": "150", "PHI1": "90"},
+                    "IP5": {"XING5": "150", "PHI5": "0"},
                 },
                 "flat": {
-                    "IP1": {"XING1": "160", "PHI1": "0",  "SEP1": "-0.55"},
-                    "IP5": {"XING5": "160", "PHI5": "90", "SEP5": "0.55"},
+                    "IP1": {"XING1": "150", "PHI1": "0"},
+                    "IP5": {"XING5": "150", "PHI5": "90"},
                 },
             }
+
+            if optic_type[0:2] == optic_type[2:4]:
+                otype = "round"
+            else:
+                otype = "flat"
+
         elif self.machine == "HLLHC":
             mapping = {
-                "round": {
-                    "IP1": {"XING1": "295",  "PHI1": "90", "SEP1": "-0.75"},
+                "default": {
+                    "IP1": {"XING1": "295",  "PHI1": "90", "SEP1": "0.75"},
                     "IP5": {"XING5": "295",  "PHI5": "0",  "SEP5": "0.75"},
-                    "IP2": {"XING2": "170",  "PHI2": "90", "SEP2": "2",  "ONALICE": "1"},
-                    "IP8": {"XING8": "-250", "PHI8": "0",  "SEP8": "-2", "ONLHCB":  "1"},
+                    "IP2": {"XING2": "170",  "PHI2": "90",  "SEP2": "2", "ONALICE": "1"},
+                    "IP8": {"XING8": "-250", "PHI8": "0",  "SEP8": "-2", "ONLHCB": "1"},
                 },
             }
-            if otype == "flat":
-                raise NotImplementedError("Flat optics not implemented for HLLHC yet.")
+            otype = "default"
 
         result = {}
         if xing:
@@ -224,8 +216,8 @@ class TemplateControl:
         return os.path.join(path, ".".join(out_parts))
 
     @staticmethod
-    def _get_template_for_machine(machine):
-        return os.path.join(TEMPLATEDIR, TEMPLATEMAP[machine])
+    def _get_template():
+        raise NotImplementedError("This function needs to be implemented.")
 
     # Public Functions ################################################################
 

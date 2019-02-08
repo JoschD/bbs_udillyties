@@ -9,13 +9,16 @@ from utils.contexts import suppress_exception
 from plotshop import plot_style as ps
 
 
-def plot_wrapper(data, layout, title):
+def plot_wrapper(data, layout, title, legend_cols=3, fig=None):
     tick_length_before_rotation = 6
     # create figure
-    fig = plt.figure()
+    if fig is None:
+        fig = plt.figure()
+        gs = gridspec.GridSpec(1, 1, height_ratios=[1])
+        ax = fig.add_subplot(gs[0])
+    else:
+        ax = fig.gca()
     fig.canvas.set_window_title(title)
-    gs = gridspec.GridSpec(1, 1, height_ratios=[1])
-    ax = fig.add_subplot(gs[0])
     color_idx = 0
     n_legend = 0
     for idx, line in enumerate(data):
@@ -64,10 +67,12 @@ def plot_wrapper(data, layout, title):
             [cap.set_alpha(line["error_y"]["opacity"]) for cap in caps]
 
     with suppress_exception(KeyError):
-        ax.set_ylabel(layout["yaxis"]["title"])
+        if layout["yaxis"]["title"] is not None:
+            ax.set_ylabel(layout["yaxis"]["title"])
 
     with suppress_exception(KeyError):
-        ax.set_xlabel(layout["xaxis"]["title"])
+        if layout["xaxis"]["title"] is not None:
+            ax.set_xlabel(layout["xaxis"]["title"])
 
     with suppress_exception(KeyError):
         ax.set_ylim(layout["yaxis"]["range"])
@@ -82,24 +87,37 @@ def plot_wrapper(data, layout, title):
         ax.yaxis.grid(layout["yaxis"]["showgrid"])
 
     with suppress_exception(KeyError):
-        ax.xaxis.set_ticks(layout["xaxis"]["tickvals"])
+        if layout["xaxis"]["tickvals"] is not None:
+            ax.xaxis.set_ticks(layout["xaxis"]["tickvals"])
 
     with suppress_exception(KeyError):
-        max_len = max([len(txt) for txt in layout["xaxis"]["ticktext"]])
-        rot = 45 if max_len > tick_length_before_rotation else 0
-        ha = "right" if max_len > tick_length_before_rotation else "center"
-        ax.xaxis.set_ticklabels(layout["xaxis"]["ticktext"], rotation=rot, ha=ha)
+        if layout["xaxis"]["ticktext"] is not None:
+            max_len = max([len(txt) for txt in layout["xaxis"]["ticktext"]])
+            rot = 45 if max_len > tick_length_before_rotation else 0
+            ha = "right" if max_len > tick_length_before_rotation else "center"
+            ax.xaxis.set_ticklabels(layout["xaxis"]["ticktext"], rotation=rot, ha=ha)
 
     with suppress_exception(KeyError):
-        ax.yaxis.set_ticks(layout["yaxis"]["tickvals"])
+        if layout["xaxis"]["showticklabels"] is not None and not layout["xaxis"]["showticklabels"]:
+            ax.set_xticklabels(['']*len(list(ax.get_xticklabels())))
 
     with suppress_exception(KeyError):
-        max_len = max([len(txt) for txt in layout["yaxis"]["ticktext"]])
-        rot = 45 if max_len > tick_length_before_rotation else 0
-        ha = "right" if max_len > tick_length_before_rotation else "center"
-        ax.yaxis.set_ticklabels(layout["yaxis"]["ticktext"], rotation=rot, ha=ha)
+        if layout["yaxis"]["tickvals"] is not None:
+            ax.yaxis.set_ticks(layout["yaxis"]["tickvals"])
 
-    leg = ps.make_top_legend(ax, 3)
+    with suppress_exception(KeyError):
+        if layout["yaxis"]["ticktext"] is not None:
+            max_len = max([len(txt) for txt in layout["yaxis"]["ticktext"]])
+            rot = 45 if max_len > tick_length_before_rotation else 0
+            ha = "right" if max_len > tick_length_before_rotation else "center"
+            ax.yaxis.set_ticklabels(layout["yaxis"]["ticktext"], rotation=rot, ha=ha)
+
+    with suppress_exception(KeyError):
+        if layout["yaxis"]["showticklabels"] is not None and not layout["yaxis"]["showticklabels"]:
+            ax.set_yticklabels(['']*len(list(ax.get_yticklabels())))
+
+    if legend_cols > 0:
+        leg = ps.make_top_legend(ax, legend_cols)
     # use _set_loc, makes finding the location later on easier
     # leg._set_loc((-.7 if n_legend == 1 else -.88, 1.05))
     # fig.tight_layout()
@@ -122,7 +140,6 @@ def plot_from_json(file_path):
         content_dict = json.loads(f.read())
     title = os.path.basename(file_path.replace(".json", "")).replace(".", " ")
     return plot_wrapper(content_dict["data"], content_dict["layout"], title)
-
 
 
 # Script Mode ##################################################################

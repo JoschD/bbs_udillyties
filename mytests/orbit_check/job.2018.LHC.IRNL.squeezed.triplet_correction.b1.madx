@@ -19,23 +19,23 @@ call,file="optics2016/toolkit/macro.madx";
 !############################## Beam Options #####################################################################################
 
 ! Beam and Optics
-mylhcbeam=%(BEAM)s;
-is_thin=%(USETHIN)s;
-optics_type=%(TYPE)s;
+mylhcbeam=1;
+is_thin=1;
+optics_type=3030;
 
 ! Tune and Chroma
-qxinit=%(QX)s;
-qyinit=%(QY)s;
+qxinit=62.31;
+qyinit=60.32;
 ptcqxinit=qxinit-floor(qxinit);
 ptcqyinit=qyinit-floor(qyinit);
-dqxinit=%(CHROMX)s;
-dqyinit=%(CHROMY)s;
+dqxinit=3;
+dqyinit=3;
 emittance=7.29767146889e-09;
 MOpowering=0.0; ! NOMINAL = +9 INJECTION -15 SQUEEZE[END] !!! ROD.A56.B1 ARE WEAK, TAKEN CARE OF LATER...
 
 ! Other
-calccorrections = %(CALCCORRECTTRIP)s ; ! calculate triplet correction (otherwise just load it)
-arcerrors = %(ARCERRORS)s ; ! apply errors to the arcs
+calccorrections = 1 ; ! calculate triplet correction (otherwise just load it)
+arcerrors = 1 ; ! apply errors to the arcs
 
 !############################## Set up Lattice ###################################################################################
 
@@ -69,10 +69,10 @@ if(mylhcbeam>1) {Use, sequence=lhcb2;}
 
 !############################## Setup for Orbit and Error Corrections ############################################################
 
-on_x1= %(XING1)s  ; on_sep1= %(SEP1)s ; on_o1= 0 ; on_oh1= 0; on_ov1= 0  ; on_ssep1:= on_sep1; on_xx1:= on_x1;  phi_IR1= %(PHI1)s ; 
-on_x2= %(XING2)s  ; on_sep2= %(SEP2)s ; on_o2= 0 ; on_oe2= 0; on_a2= 0   ; on_oh2=0; on_ov2= 0  ;               phi_IR2= %(PHI2)s ;
-on_x5= %(XING5)s  ; on_sep5= %(SEP5)s ; on_o5= 0 ; on_oh5= 0; on_ov5= 0  ; on_ssep5:= on_sep5; on_xx5:= on_x5 ; phi_IR5= %(PHI5)s ;
-on_x8= %(XING8)s  ; on_sep8= %(SEP8)s ; on_o8= 0 ; on_a8= 0 ; on_sep8h= 0; on_x8v= 0; on_oh8= 0; on_ov8= 0;     phi_IR8= %(PHI8)s ;
+on_x1= 160  ; on_sep1= -0.55 ; on_o1= 0 ; on_oh1= 0; on_ov1= 0  ; on_ssep1:= on_sep1; on_xx1:= on_x1;  phi_IR1= 90 ; 
+on_x2= 0  ; on_sep2= 0 ; on_o2= 0 ; on_oe2= 0; on_a2= 0   ; on_oh2=0; on_ov2= 0  ;               phi_IR2= 0 ;
+on_x5= 160  ; on_sep5= 0.55 ; on_o5= 0 ; on_oh5= 0; on_ov5= 0  ; on_ssep5:= on_sep5; on_xx5:= on_x5 ; phi_IR5= 0 ;
+on_x8= 0  ; on_sep8= 0 ; on_o8= 0 ; on_a8= 0 ; on_sep8h= 0; on_x8v= 0; on_oh8= 0; on_ov8= 0;     phi_IR8= 0 ;
 on_alice= 0 ;  
 on_sol_alice=0;                                                                    
 on_lhcb = 0 ;  
@@ -80,7 +80,7 @@ on_sol_atlas=0;
 on_sol_cms=0;
 
 
-on_off5_v = %(OFF5V)s; ! Value of knob LHCBEAM/IP5-OFFSET-V-MM
+on_off5_v = 0; ! Value of knob LHCBEAM/IP5-OFFSET-V-MM
 
 ! LHCBEAM/IP5-OFFSET-V-MM definition:
 acbcv7.l5b1    = acbcv7.l5b1    -   3.7350002860E-05 * on_off5_v; ! Circuit name: RCBCV7.L5B1/KICK.
@@ -96,6 +96,19 @@ acbcv8.l5b2    = acbcv8.l5b2    -   1.4290941610E-05 * on_off5_v; ! Circuit name
 acbyvs4.l5b1   = acbyvs4.l5b1   +   3.2972047620E-05 * on_off5_v; ! Circuit name: RCBYVS4.L5B1/KICK.
 acbcv6.r5b1    = acbcv6.r5b1    +   3.0677626100E-05 * on_off5_v; ! Circuit name: RCBCV6.R5B1/KICK.
 
+
+! Cycling w.r.t. to IP3 (mandatory to find closed orbit in collision in the presence of errors)
+seqedit,sequence=lhcb1;flatten;cycle,start=MSIA.EXIT.B1;endedit;
+seqedit,sequence=lhcb2;flatten;cycle,start=MKI.A5R8.B2;endedit;
+
+select,flag=twiss,clear;
+select, flag=twiss, pattern="IP",   column=name,s,x,y,betx,bety,alfx,alfy,dx,dpx,mux,muy;
+select, flag=twiss, pattern="BPM",   column=name,s,x,y,betx,bety,alfx,alfy,dx,dpx,mux,muy;
+Use, sequence=lhcb1;
+twiss,sequence=lhcb1,file=twiss.b1;
+Use, sequence=lhcb2;
+twiss,sequence=lhcb2,file=twiss.b2;
+stop;
 
 select,flag=twiss,clear;
 if(mylhcbeam==1) {twiss,sequence=lhcb1,table=nominal; };
@@ -253,7 +266,28 @@ select, flag=twiss, pattern=MCSSX.*, column=name,s,x,y,px,py,betx,bety,alfx,alfy
 
 
 ! Output of the nominal machine
-%(NOMINALMACHINE)s
+ptc_create_universe;
+!    ptc_create_layout,model=3,method=6,nst=3,resplit,thin=0.0005,xbend=0.0005;
+    ptc_create_layout,model=3,method=4,nst=3,exact;    ptc_align;
+!    ptc_setswitch, fringe=True;
+    select_ptc_normal,  q1=0, q2=0;
+    select_ptc_normal, dq1=1,dq2=1;
+    select_ptc_normal, dq1=2,dq2=2;
+    select_ptc_normal, dq1=3,dq2=3;
+    select_ptc_normal, anhx=1,0,0; ! dQx/dex
+    select_ptc_normal, anhy=0,1,0; ! dQy/dey
+    select_ptc_normal, anhx=0,1,0;
+    select_ptc_normal, anhy=1,0,0;
+    select_ptc_normal, anhx=2,0,0; ! d2Qx/dex^2
+    select_ptc_normal, anhx=1,1,0;
+    select_ptc_normal, anhx=0,2,0;
+    select_ptc_normal, anhy=0,2,0; ! d2Qy/dey^2
+    select_ptc_normal, anhy=1,1,0; ! d2Qy/deydex
+    select_ptc_normal, anhy=2,0,0;
+    ptc_normal,closed_orbit,normal,icase=5,no=5;
+    write, table=normal_results,file='/afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/ptc_normal.ampdet.b1.nominal.dat';
+ptc_end;
+
 
 !############################## Call Error Subroutines and Error Tables ##########################################################
 
@@ -281,17 +315,17 @@ if(mylhcbeam>1)  {Use, sequence=lhcb2;}
 exec ON_ALL_MULT;
 ON_LSF:=0;             ! to be set to 0 if run is performed on BOINC. ! double check if this is still true - and if wise actually includes any of these errors
 
- ON_A1s  =  %(A1)s  ; ON_A1r  =  %(A1)s  ; ON_B1s  =  %(B1)s  ; ON_B1r  =  %(B1)s  ;
- ON_A2s  =  %(A2)s  ; ON_A2r  =  %(A2)s  ; ON_B2s  =  %(B2)s  ; ON_B2r  =  %(B2)s  ;
- ON_A3s  =  %(A3)s  ; ON_A3r  =  %(A3)s  ; ON_B3s  =  %(B3)s  ; ON_B3r  =  %(B3)s  ;
- ON_A4s  =  %(A4)s  ; ON_A4r  =  %(A4)s  ; ON_B4s  =  %(B4)s  ; ON_B4r  =  %(B4)s  ;
- ON_A5s  =  %(A5)s  ; ON_A5r  =  %(A5)s  ; ON_B5s  =  %(B5)s  ; ON_B5r  =  %(B5)s  ;
- ON_A6s  =  %(A6)s  ; ON_A6r  =  %(A6)s  ; ON_B6s  =  %(B6)s  ; ON_B6r  =  %(B6)s  ;
- ON_A7s  =  %(A7)s  ; ON_A7r  =  %(A7)s  ; ON_B7s  =  %(B7)s  ; ON_B7r  =  %(B7)s  ;
- ON_A8s  =  %(A8)s  ; ON_A8r  =  %(A8)s  ; ON_B8s  =  %(B8)s  ; ON_B8r  =  %(B8)s  ;
- ON_A9s  =  %(A9)s  ; ON_A9r  =  %(A9)s  ; ON_B9s  =  %(B9)s  ; ON_B9r  =  %(B9)s  ;
- ON_A10s =  %(A10)s ; ON_A10r =  %(A10)s ; ON_B10s =  %(B10)s ; ON_B10r =  %(B10)s ;
- ON_A11s =  %(A11)s ; ON_A11r =  %(A11)s ; ON_B11s =  %(B11)s ; ON_B11r =  %(B11)s ;
+ ON_A1s  =  0  ; ON_A1r  =  0  ; ON_B1s  =  0  ; ON_B1r  =  0  ;
+ ON_A2s  =  0  ; ON_A2r  =  0  ; ON_B2s  =  0  ; ON_B2r  =  0  ;
+ ON_A3s  =  0  ; ON_A3r  =  0  ; ON_B3s  =  0  ; ON_B3r  =  0  ;
+ ON_A4s  =  0  ; ON_A4r  =  0  ; ON_B4s  =  1  ; ON_B4r  =  1  ;
+ ON_A5s  =  1  ; ON_A5r  =  1  ; ON_B5s  =  1  ; ON_B5r  =  1  ;
+ ON_A6s  =  1  ; ON_A6r  =  1  ; ON_B6s  =  1  ; ON_B6r  =  1  ;
+ ON_A7s  =  0  ; ON_A7r  =  0  ; ON_B7s  =  0  ; ON_B7r  =  0  ;
+ ON_A8s  =  0  ; ON_A8r  =  0  ; ON_B8s  =  0  ; ON_B8r  =  0  ;
+ ON_A9s  =  0  ; ON_A9r  =  0  ; ON_B9s  =  0  ; ON_B9r  =  0  ;
+ ON_A10s =  0 ; ON_A10r =  0 ; ON_B10s =  0 ; ON_B10r =  0 ;
+ ON_A11s =  0 ; ON_A11r =  0 ; ON_B11s =  0 ; ON_B11r =  0 ;
  ON_A12s =  ON_LSF  ; ON_A12r =  ON_LSF  ; ON_B12s =  ON_LSF  ; ON_B12r =  ON_LSF  ;
  ON_A13s =  ON_LSF  ; ON_A13r =  ON_LSF  ; ON_B13s =  ON_LSF  ; ON_B13r =  ON_LSF  ;
  ON_A14s =  ON_LSF  ; ON_A14r =  ON_LSF  ; ON_B14s =  ON_LSF  ; ON_B14r =  ON_LSF  ;
@@ -299,14 +333,35 @@ ON_LSF:=0;             ! to be set to 0 if run is performed on BOINC. ! double c
 
 !+++++ Read WISE Errortable ++++++++++++++++++++++++++++++++++++++++++++++++++++
 
-readtable, file="%(ERRORDEF)s";
+readtable, file="/afs/cern.ch/work/j/jdilly/wise/WISE-2015-LHCsqueeze-0.4_10.0_0.4_3.0-6.5TeV-emfqcs/WISE.errordef.0001.tfs";
 
 !+++++ Apply field errors to Arcs ++++++++++++++++++++++++++++++++
 
 if (arcerrors == 1) {
 	call,   file="db5/measured_errors/Efcomp_MB.madx"  ;
 	call,   file="db5/measured_errors/Efcomp_MQ.madx"  ;
-	%(ARCAPPLIED)s
+	ptc_create_universe;
+!    ptc_create_layout,model=3,method=6,nst=3,resplit,thin=0.0005,xbend=0.0005;
+    ptc_create_layout,model=3,method=4,nst=3,exact;    ptc_align;
+!    ptc_setswitch, fringe=True;
+    select_ptc_normal,  q1=0, q2=0;
+    select_ptc_normal, dq1=1,dq2=1;
+    select_ptc_normal, dq1=2,dq2=2;
+    select_ptc_normal, dq1=3,dq2=3;
+    select_ptc_normal, anhx=1,0,0; ! dQx/dex
+    select_ptc_normal, anhy=0,1,0; ! dQy/dey
+    select_ptc_normal, anhx=0,1,0;
+    select_ptc_normal, anhy=1,0,0;
+    select_ptc_normal, anhx=2,0,0; ! d2Qx/dex^2
+    select_ptc_normal, anhx=1,1,0;
+    select_ptc_normal, anhx=0,2,0;
+    select_ptc_normal, anhy=0,2,0; ! d2Qy/dey^2
+    select_ptc_normal, anhy=1,1,0; ! d2Qy/deydex
+    select_ptc_normal, anhy=2,0,0;
+    ptc_normal,closed_orbit,normal,icase=5,no=5;
+    write, table=normal_results,file='/afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/ptc_normal.ampdet.b1.errors_arc.dat';
+ptc_end;
+
 };
 
 !+++++ Apply field errors to all other quads and dipoles ++++++++++++++++++++++
@@ -314,7 +369,28 @@ if (arcerrors == 1) {
 ! Nominal LHC magnets
 call,   file="db5/measured_errors/Efcomp_MQX.madx" ;
 
-%(MQXAPPLIED)s
+ptc_create_universe;
+!    ptc_create_layout,model=3,method=6,nst=3,resplit,thin=0.0005,xbend=0.0005;
+    ptc_create_layout,model=3,method=4,nst=3,exact;    ptc_align;
+!    ptc_setswitch, fringe=True;
+    select_ptc_normal,  q1=0, q2=0;
+    select_ptc_normal, dq1=1,dq2=1;
+    select_ptc_normal, dq1=2,dq2=2;
+    select_ptc_normal, dq1=3,dq2=3;
+    select_ptc_normal, anhx=1,0,0; ! dQx/dex
+    select_ptc_normal, anhy=0,1,0; ! dQy/dey
+    select_ptc_normal, anhx=0,1,0;
+    select_ptc_normal, anhy=1,0,0;
+    select_ptc_normal, anhx=2,0,0; ! d2Qx/dex^2
+    select_ptc_normal, anhx=1,1,0;
+    select_ptc_normal, anhx=0,2,0;
+    select_ptc_normal, anhy=0,2,0; ! d2Qy/dey^2
+    select_ptc_normal, anhy=1,1,0; ! d2Qy/deydex
+    select_ptc_normal, anhy=2,0,0;
+    ptc_normal,closed_orbit,normal,icase=5,no=5;
+    write, table=normal_results,file='/afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/ptc_normal.ampdet.b1.errors_mqx.dat';
+ptc_end;
+
 
 call,   file="db5/measured_errors/Efcomp_MBXW.madx"; ! this is the D1 in IP1 and IP5
 call,   file="db5/measured_errors/Efcomp_MBRC.madx"; ! this is the D2 
@@ -323,7 +399,28 @@ call,   file="db5/measured_errors/Efcomp_MBRB.madx"; ! for IP4
 call,   file="db5/measured_errors/Efcomp_MBRS.madx"; ! for IP4
 call,   file="db5/measured_errors/Efcomp_MBW.madx" ; ! this is for IP7 and IP3
 
-%(MBIPAPPLIED)s
+ptc_create_universe;
+!    ptc_create_layout,model=3,method=6,nst=3,resplit,thin=0.0005,xbend=0.0005;
+    ptc_create_layout,model=3,method=4,nst=3,exact;    ptc_align;
+!    ptc_setswitch, fringe=True;
+    select_ptc_normal,  q1=0, q2=0;
+    select_ptc_normal, dq1=1,dq2=1;
+    select_ptc_normal, dq1=2,dq2=2;
+    select_ptc_normal, dq1=3,dq2=3;
+    select_ptc_normal, anhx=1,0,0; ! dQx/dex
+    select_ptc_normal, anhy=0,1,0; ! dQy/dey
+    select_ptc_normal, anhx=0,1,0;
+    select_ptc_normal, anhy=1,0,0;
+    select_ptc_normal, anhx=2,0,0; ! d2Qx/dex^2
+    select_ptc_normal, anhx=1,1,0;
+    select_ptc_normal, anhx=0,2,0;
+    select_ptc_normal, anhy=0,2,0; ! d2Qy/dey^2
+    select_ptc_normal, anhy=1,1,0; ! d2Qy/deydex
+    select_ptc_normal, anhy=2,0,0;
+    ptc_normal,closed_orbit,normal,icase=5,no=5;
+    write, table=normal_results,file='/afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/ptc_normal.ampdet.b1.errors_mb_ip.dat';
+ptc_end;
+
 
 call,   file="db5/measured_errors/Efcomp_MQY.madx" ;
 call,   file="db5/measured_errors/Efcomp_MQM.madx" ;
@@ -332,7 +429,28 @@ call,   file="db5/measured_errors/Efcomp_MQML.madx";
 call,   file="db5/measured_errors/Efcomp_MQTL.madx";
 call,   file="db5/measured_errors/Efcomp_MQW.madx" ;
 
-%(ALLAPPLIED)s
+ptc_create_universe;
+!    ptc_create_layout,model=3,method=6,nst=3,resplit,thin=0.0005,xbend=0.0005;
+    ptc_create_layout,model=3,method=4,nst=3,exact;    ptc_align;
+!    ptc_setswitch, fringe=True;
+    select_ptc_normal,  q1=0, q2=0;
+    select_ptc_normal, dq1=1,dq2=1;
+    select_ptc_normal, dq1=2,dq2=2;
+    select_ptc_normal, dq1=3,dq2=3;
+    select_ptc_normal, anhx=1,0,0; ! dQx/dex
+    select_ptc_normal, anhy=0,1,0; ! dQy/dey
+    select_ptc_normal, anhx=0,1,0;
+    select_ptc_normal, anhy=1,0,0;
+    select_ptc_normal, anhx=2,0,0; ! d2Qx/dex^2
+    select_ptc_normal, anhx=1,1,0;
+    select_ptc_normal, anhx=0,2,0;
+    select_ptc_normal, anhy=0,2,0; ! d2Qy/dey^2
+    select_ptc_normal, anhy=1,1,0; ! d2Qy/deydex
+    select_ptc_normal, anhy=2,0,0;
+    ptc_normal,closed_orbit,normal,icase=5,no=5;
+    write, table=normal_results,file='/afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/ptc_normal.ampdet.b1.errors_all.dat';
+ptc_end;
+
 
 
 !############################## Nominal corrections for Triplet and D1 ##########################################################
@@ -344,11 +462,32 @@ if (calccorrections == 1) {
   select, flag=error, pattern=MBRC, class=multipole;
   esave,  file="temp/tripD1D2.errors";
   system, "db5/toolkit/corr_tripD1";
-  system, "cp temp/MCX_setting.mad %(CORRECTIONS)s";
+  system, "cp temp/MCX_setting.mad /afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/MCX.setting.b1.3030.mad";
 }
-call,file="%(CORRECTIONS)s";
+call,file="/afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/MCX.setting.b1.3030.mad";
 
-%(CORRECTED)s
+ptc_create_universe;
+!    ptc_create_layout,model=3,method=6,nst=3,resplit,thin=0.0005,xbend=0.0005;
+    ptc_create_layout,model=3,method=4,nst=3,exact;    ptc_align;
+!    ptc_setswitch, fringe=True;
+    select_ptc_normal,  q1=0, q2=0;
+    select_ptc_normal, dq1=1,dq2=1;
+    select_ptc_normal, dq1=2,dq2=2;
+    select_ptc_normal, dq1=3,dq2=3;
+    select_ptc_normal, anhx=1,0,0; ! dQx/dex
+    select_ptc_normal, anhy=0,1,0; ! dQy/dey
+    select_ptc_normal, anhx=0,1,0;
+    select_ptc_normal, anhy=1,0,0;
+    select_ptc_normal, anhx=2,0,0; ! d2Qx/dex^2
+    select_ptc_normal, anhx=1,1,0;
+    select_ptc_normal, anhx=0,2,0;
+    select_ptc_normal, anhy=0,2,0; ! d2Qy/dey^2
+    select_ptc_normal, anhy=1,1,0; ! d2Qy/deydex
+    select_ptc_normal, anhy=2,0,0;
+    ptc_normal,closed_orbit,normal,icase=5,no=5;
+    write, table=normal_results,file='/afs/cern.ch/work/j/jdilly/private/STUDY.18.LHC.MD3311/error_check/results_per_seed/seed_0001/output_3030.errors_B4_B5_A5_B6_A6.in_all_IPs.wXing_in_IP5_IP1/ptc_normal.ampdet.b1.corrected.dat';
+ptc_end;
+
 
 
 !############################## Clean Up #########################################################################################

@@ -1,0 +1,72 @@
+2019-01-31 12:13:06,616 DEBUG [main] - Input: []
+2019-01-31 12:13:06,624 DEBUG [main] - Loading configuration from file null
+2019-01-31 12:13:06,626 INFO  [main] - Reading configurations from null...
+2019-01-31 12:13:06,626 INFO  [main] - ************************* Configurations ***************************
+2019-01-31 12:13:06,626 INFO  [main] - Produce Madx Template : false
+2019-01-31 12:13:06,626 INFO  [main] - Extract Optics : false
+2019-01-31 12:13:06,626 INFO  [main] -  - From directory : /afs/cern.ch/eng/lhc_online_model/opticsOP/2012/V6.5.seq and /afs/cern.ch/eng/lhc_online_model/opticsOP/2015/lhc.seq
+2019-01-31 12:13:06,626 INFO  [main] -  - Datasource Preferences: LDB_PRO
+2019-01-31 12:13:06,626 INFO  [main] -  - Client Name: BEAM_PHYSICS
+2019-01-31 12:13:06,626 INFO  [main] -  - Application Name: LHC_MD_ABP_ANALYSIS
+2019-01-31 12:13:06,626 INFO  [main] - Extracts Orbits : false
+2019-01-31 12:13:06,626 INFO  [main] - ********************************************************************
+2019-01-31 12:13:06,627 INFO  [main] - Time step was not chosen. Default time step was set. By default data are extracted only for start time plus offset. Data extracted for exact time without time step.
+2019-01-31 12:13:06,631 INFO  [main] - Time offset was not chosen. Default time offset was set. Default time step is: 0 seconds
+2019-01-31 12:13:06,636 DEBUG [main] - Initially has 0 extractors
+2019-01-31 12:13:06,636 DEBUG [main] - After optics  0 extractors
+2019-01-31 12:13:06,636 DEBUG [main] - After ItoK  0 extractors
+2019-01-31 12:13:06,636 DEBUG [main] - After madxScriptMaker  0 extractors
+2019-01-31 12:13:06,636 DEBUG [main] - After knob  0 extractors
+2019-01-31 12:13:06,636 DEBUG [main] - After orbit  0 extractors
+2019-01-31 12:13:06,636 DEBUG [main] - After parameters  0 extractors
+2019-01-31 12:13:06,636 DEBUG [main] - List of registered extractors:
+2019-01-31 12:13:06,636 DEBUG [main] -   
+2019-01-31 12:13:06,648 DEBUG [main] - Executing lhc.model.extractor.HelpExtractor.HelpExtractorManager ... Done
+2019-01-31 12:17:46,229 DEBUG [main] - Input: [-e, -time, 2018-04-10_22:28:00, -beam, B1]
+2019-01-31 12:17:46,236 DEBUG [main] - Loading configuration from file null
+2019-01-31 12:17:46,238 INFO  [main] - Reading configurations from null...
+2019-01-31 12:17:46,238 INFO  [main] - ************************* Configurations ***************************
+2019-01-31 12:17:46,238 INFO  [main] - Produce Madx Template : false
+2019-01-31 12:17:46,238 INFO  [main] - Extract Optics : false
+2019-01-31 12:17:46,238 INFO  [main] -  - From directory : /afs/cern.ch/eng/lhc_online_model/opticsOP/2012/V6.5.seq and /afs/cern.ch/eng/lhc_online_model/opticsOP/2015/lhc.seq
+2019-01-31 12:17:46,238 INFO  [main] -  - Datasource Preferences: LDB_PRO
+2019-01-31 12:17:46,238 INFO  [main] -  - Client Name: BEAM_PHYSICS
+2019-01-31 12:17:46,238 INFO  [main] -  - Application Name: LHC_MD_ABP_ANALYSIS
+2019-01-31 12:17:46,238 INFO  [main] - Extracts Orbits : false
+2019-01-31 12:17:46,238 INFO  [main] - ********************************************************************
+2019-01-31 12:17:46,239 INFO  [main] - Time step was not chosen. Default time step was set. By default data are extracted only for start time plus offset. Data extracted for exact time without time step.
+2019-01-31 12:17:46,241 INFO  [main] - Time offset was not chosen. Default time offset was set. Default time step is: 0 seconds
+2019-01-31 12:17:46,241 DEBUG [main] - Time has 1 arguments 
+2019-01-31 12:17:46,245 DEBUG [main] - Adding extraction manager (found -e) class lhc.model.extractor.opticextractor.OpticExtractorManager
+2019-01-31 12:17:46,246 DEBUG [main] - Initially has 0 extractors
+2019-01-31 12:17:46,246 DEBUG [main] - After optics  1 extractors
+2019-01-31 12:17:46,246 DEBUG [main] - After ItoK  1 extractors
+2019-01-31 12:17:46,246 DEBUG [main] - After madxScriptMaker  1 extractors
+2019-01-31 12:17:46,246 DEBUG [main] - After knob  1 extractors
+2019-01-31 12:17:46,246 DEBUG [main] - After orbit  1 extractors
+2019-01-31 12:17:46,246 DEBUG [main] - After parameters  1 extractors
+2019-01-31 12:17:46,246 DEBUG [main] - List of registered extractors:
+2019-01-31 12:17:46,246 DEBUG [main] -      lhc.model.extractor.opticextractor.OpticExtractorManager
+2019-01-31 12:17:46,246 DEBUG [main] -   
+2019-01-31 12:17:46,249 INFO  [main] - Time step was not chosen. Default time step was set. By default data are extracted only for start time plus offset. Data extracted for exact time without time step.
+2019-01-31 12:17:46,249 INFO  [main] - Time offset was not chosen. Default time offset was set. Default time step is: 0 seconds
+2019-01-31 12:17:46,249 DEBUG [main] - Time has 1 arguments 
+2019-01-31 12:17:46,254 INFO  [Optics extraction] - Extracting OpticID from Timber for time: 2018-04-10 22:28:00.0 ...
+2019-01-31 12:19:58,066 ERROR [Optics extraction] - Optics extraction error.
+2019-01-31 12:19:58,066 DEBUG [Optics extraction] - Optics extraction error: the exception 
+org.springframework.remoting.RemoteLookupFailureException: LSA Server is down or unreachable.
+Are you in the Technical Network?
+If yes, then most likely the LSA server is being restarted now.
+Please wait a moment and re-try.
+If after a few minutes you still can't connect then contact: inca-support@cern.ch
+; nested exception is java.rmi.ConnectException: Connection refused to host: LHCINCASERVER.cern.ch; nested exception is: 
+	java.net.ConnectException: Connection timed out (Connection timed out)
+	at cern.lsa.client.common.spi.remoting.LSAServiceAwareRmiProxyFactoryBean.getStub(LSAServiceAwareRmiProxyFactoryBean.java:196)
+	at cern.lsa.client.common.spi.remoting.LSAServiceAwareRmiProxyFactoryBean$FilteringStackTraceInvocationHandler.invoke(LSAServiceAwareRmiProxyFactoryBean.java:287)
+Caused by: java.rmi.ConnectException: Connection refused to host: LHCINCASERVER.cern.ch; nested exception is: 
+	java.net.ConnectException: Connection timed out (Connection timed out)
+	at cern.lsa.client.common.spi.remoting.LSAServiceAwareRmiProxyFactoryBean.getStub(LSAServiceAwareRmiProxyFactoryBean.java:191)
+	... 1 more
+Caused by: java.net.ConnectException: Connection timed out (Connection timed out)
+	... 2 more
+2019-01-31 12:19:58,070 DEBUG [main] - Executing lhc.model.extractor.opticextractor.OpticExtractorManager ... Done

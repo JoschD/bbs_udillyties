@@ -1,0 +1,53 @@
+@ NAME             %05s "TWISS"
+@ TYPE             %05s "TWISS"
+@ SEQUENCE         %05s "LHCB2"
+@ PARTICLE         %06s "PROTON"
+@ MASS             %le        0.9382720813
+@ CHARGE           %le                   1
+@ ENERGY           %le                6500
+@ PC               %le         6499.999932
+@ GAMMA            %le         6927.628062
+@ KBUNCH           %le                   1
+@ BCURRENT         %le     1.801727603e-05
+@ SIGE             %le               0.001
+@ SIGT             %le                   1
+@ NPART            %le               1e+10
+@ EX               %le     7.297671469e-09
+@ EY               %le     7.297671469e-09
+@ ET               %le               0.001
+@ BV_FLAG          %le                  -1
+@ LENGTH           %le          26658.8832
+@ ALFA             %le     0.0003479002217
+@ ORBIT5           %le                  -0
+@ GAMMATR          %le         53.61331328
+@ Q1               %le               62.31
+@ Q2               %le               60.32
+@ DQ1              %le                   2
+@ DQ2              %le                   2
+@ DXMAX            %le         2.886801466
+@ DYMAX            %le                   0
+@ XCOMAX           %le                   0
+@ YCOMAX           %le                   0
+@ BETXMAX          %le         16050.91492
+@ BETYMAX          %le         16050.91492
+@ XCORMS           %le                   0
+@ YCORMS           %le                   0
+@ DXRMS            %le         1.499414969
+@ DYRMS            %le                   0
+@ DELTAP           %le                   0
+@ SYNCH_1          %le                   0
+@ SYNCH_2          %le                   0
+@ SYNCH_3          %le                   0
+@ SYNCH_4          %le                   0
+@ SYNCH_5          %le                   0
+@ TITLE            %08s "no-title"
+@ ORIGIN           %16s "5.04.02 Linux 64"
+@ DATE             %08s "22/01/19"
+@ TIME             %08s "12.24.00"
+* NAME                                S                  X                  Y                 PX                 PY 
+$ %s                                %le                %le                %le                %le                %le 
+ "IP5"                      6664.873167                  0                  0                  0                  0
+ "IP8"                      16650.50582                  0                  0                  0                  0
+ "IP1.L1"                    19994.1624                  0                  0                  0                  0
+ "IP1"                       19994.1624                  0                  0                  0                  0
+ "IP2"                      23326.44662                  0                  0                  0                  0
