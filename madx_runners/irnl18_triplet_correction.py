@@ -232,12 +232,12 @@ def _job_needs_to_be_done(seed_dir, machine, beam, xing, error_types, error_loc,
     corrections = tripcor_tmplt.CORRECTIONS_FILENAME.format("b{:d}".format(beam), optic_type)
     corrections = corrections.replace(".", r"\.")  # for regex
     last_stage = tripcor_tmplt.STAGE_ORDER[machine][-1]
-    last_file_pattern = "r\." + "b{:d}".format(beam) + r"\." + tripcor_tmplt.IDS[last_stage] + r"\."
+    last_file_pattern = r"\." + "b{:d}".format(beam) + r"\." + tripcor_tmplt.IDS[last_stage] + r"\."
 
     if (not len(find_file_by_pattern(path, corrections)) or
             not len(find_file_by_pattern(path, last_file_pattern))):
         LOG.warn("Not all output files present for Beam {:d} in '{:s}'".format(beam, path))
-        beam_files = find_file_by_pattern(path, "r\." + "b{:d}".format(beam) + r"\.")
+        beam_files = find_file_by_pattern(path, r"\." + "b{:d}".format(beam) + r"\.")
         for bf in beam_files:
             LOG.warn("  Removing '{:s}'".format(bf))
             os.remove(bf)
