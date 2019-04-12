@@ -13,7 +13,7 @@ from utils import htcondor_wrapper as htc
 from utils import logging_tools
 
 from udillyties.madx_runners import irnl18_triplet_correction_template_control as tripcor_tmplt
-from udillyties.helpers import find_file_by_pattern
+from udillyties.helpers import find_file_by_pattern, find_zero_byte_files_by_pattern
 
 # LOG = logging_tools.get_logger(__name__,
 #                                level_console=logging_tools.DEBUG,
@@ -232,11 +232,17 @@ def _job_needs_to_be_done(seed_dir, machine, beam, xing, error_types, error_loc,
     corrections = tripcor_tmplt.CORRECTIONS_FILENAME.format("b{:d}".format(beam), optic_type)
     corrections = corrections.replace(".", r"\.")  # for regex
     last_stage = tripcor_tmplt.STAGE_ORDER[machine][-1]
-    last_file_pattern = r"\." + "b{:d}".format(beam) + r"\." + tripcor_tmplt.IDS[last_stage] + r"\."
+    beam_pattern = r"\." + "b{:d}".format(beam) + r"\."
+    last_file_pattern = beam_pattern + tripcor_tmplt.IDS[last_stage] + r"\."
+    cta_files_pattern = beam_pattern + r"after_cta\."
 
     if (not len(find_file_by_pattern(path, corrections)) or
-            not len(find_file_by_pattern(path, last_file_pattern))):
+        not len(find_file_by_pattern(path, cta_files_pattern)) or
+        not len(find_file_by_pattern(path, last_file_pattern)) or
+        len(find_zero_byte_files_by_pattern(path, beam_pattern))
+    ):
         LOG.warn("Not all output files present for Beam {:d} in '{:s}'".format(beam, path))
+        # return False
         beam_files = find_file_by_pattern(path, r"\." + "b{:d}".format(beam) + r"\.")
         for bf in beam_files:
             LOG.warn("  Removing '{:s}'".format(bf))
@@ -440,3 +446,4 @@ if __name__ == '__main__':
 #     main(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="FlatOrbit")
     main(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="CrossingIP5")
     main(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="NotCrossingIP5")
+    # main(entry_cfg="./irnl18_triplet_correction_configs/md3311.ini", section="manual_feeddown")

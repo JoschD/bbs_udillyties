@@ -13,6 +13,7 @@ LOG = logging_tools.get_logger(__name__)
 TEMPLATEDIR = os.path.abspath(os.path.dirname(__file__))
 TEMPLATEMAP = {
     "LHC": "template.2018.LHC.IRNL.squeezed.triplet_correction.madx",
+    # "LHC": "template.2018.LHC.IRNL.squeezed.manual_feeddown.madx",  # MANUAL FEEDDOWN
     "HLLHC": "template.2018.HLLHC.IRNL.squeezed.triplet_correction.madx",
 }
 
@@ -37,6 +38,7 @@ IDS = {
 }
 
 SUPPORTED_MACHINES = ["LHC", "HLLHC"]
+CTA_IDS = ["before_cta", "after_cta"]
 
 
 class TemplateControl:
@@ -243,6 +245,10 @@ class TemplateControl:
             template = f.read()
         return template % params
 
+    @staticmethod
+    def get_cta_names(beam):
+        return ["twiss.b{:d}.{}.tfs".format(beam, id) for id in CTA_IDS]
+
     def write_madx_job(self, output_path, errordef_path, seed,
                        beam, xing, error_types, optic_type,
                        correct_by, measure_of_interest, manual={}):
@@ -271,6 +277,7 @@ class TemplateControl:
         params.update(self._get_errortypes_params(error_types))
         params.update(self._get_output_snippets(output_path, beam, correct_by, measure_of_interest))
         params.update(self._get_corrections_params(output_path, beam, optic_type, correct_by))
+        params.update({"OUTPATH": output_path})
         params.update(manual)
 
         job_path = self._get_job_name(output_path, beam, correct_by)

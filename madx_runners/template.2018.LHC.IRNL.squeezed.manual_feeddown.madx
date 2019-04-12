@@ -174,27 +174,56 @@ twiss, sequence=lhcb2, file=twiss.b2;system,"cat twiss.b2";
 
 !############################## Tune Matching ####################################################################################
 
-if(mylhcbeam==1){
-    match;
-      global, q1=qxinit, q2=qyinit;
-      global, dq1=dqxinit, dq2=dqyinit;
-      vary,   name=dQx.b1, step=1.0E-7 ;
-      vary,   name=dQy.b1, step=1.0E-7 ;
-      vary,   name=dQpx.b1, step=1.0E-7 ;
-      vary,   name=dQpy.b1, step=1.0E-7 ;
-      lmdif,  calls=100, tolerance=1.0E-21;
-    endmatch;
+if(is_thin==1){
+    !!! thin version of tune matching
+    if(mylhcbeam==1){
+       match;
+         global, q1=qxinit, q2=qyinit;
+         global, dq1=dqxinit, dq2=dqyinit;
+         vary,   name=kqtf.b1, step=1.0E-7 ;
+         vary,   name=kqtd.b1, step=1.0E-7 ;
+         vary,   name=ksf.b1, step=1.0E-7 ;
+         vary,   name=ksd.b1, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
+    if(mylhcbeam>1){
+       match;
+         global, q1=qxinit, q2=qyinit;
+         global, dq1=dqxinit, dq2=dqyinit;
+         vary,   name=kqtf.b2, step=1.0E-7 ;
+         vary,   name=kqtd.b2, step=1.0E-7 ;
+         vary,   name=ksf.b2, step=1.0E-7 ;
+         vary,   name=ksd.b2, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
 } else {
-    match;
-      global, q1=qxinit, q2=qyinit;
-      global, dq1=dqxinit, dq2=dqyinit;
-      vary,   name=dQx.b2, step=1.0E-7 ;
-      vary,   name=dQy.b2, step=1.0E-7 ;
-      vary,   name=dQpx.b2, step=1.0E-7 ;
-      vary,   name=dQpy.b2, step=1.0E-7 ;
-      lmdif,  calls=100, tolerance=1.0E-21;
-    endmatch;
+    ! thick version of tune matching
+    if(mylhcbeam==1){
+       match;
+         global, q1=qxinit, q2=qyinit;
+         global, dq1=dqxinit, dq2=dqyinit;
+         vary,   name=dQx.b1, step=1.0E-7 ;
+         vary,   name=dQy.b1, step=1.0E-7 ;
+         vary,   name=dQpx.b1, step=1.0E-7 ;
+         vary,   name=dQpy.b1, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
+    if(mylhcbeam>1){
+       match;
+         global, q1=qxinit, q2=qyinit;
+         global, dq1=dqxinit, dq2=dqyinit;
+         vary,   name=dQx.b2, step=1.0E-7 ;
+         vary,   name=dQy.b2, step=1.0E-7 ;
+         vary,   name=dQpx.b2, step=1.0E-7 ;
+         vary,   name=dQpy.b2, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
 }
+
 
 ! Select for all following ptc_twiss outputs 
 if(mylhcbeam==1){
@@ -274,63 +303,15 @@ readtable, file="%(ERRORDEF)s";
 
 !+++++ Apply field errors to Arcs ++++++++++++++++++++++++++++++++
 
-if (arcerrors == 1) {
-	call,   file="db5/measured_errors/Efcomp_MB.madx"  ;
-	call,   file="db5/measured_errors/Efcomp_MQ.madx"  ;
-  
-  if(mylhcbeam==1){
-      match;
-        global, q1=qxinit, q2=qyinit;
-        global, dq1=dqxinit, dq2=dqyinit;
-        vary,   name=dQx.b1, step=1.0E-7 ;
-        vary,   name=dQy.b1, step=1.0E-7 ;
-        vary,   name=dQpx.b1, step=1.0E-7 ;
-        vary,   name=dQpy.b1, step=1.0E-7 ;
-        lmdif,  calls=100, tolerance=1.0E-21;
-      endmatch;
-  } else {
-      match;
-        global, q1=qxinit, q2=qyinit;
-        global, dq1=dqxinit, dq2=dqyinit;
-        vary,   name=dQx.b2, step=1.0E-7 ;
-        vary,   name=dQy.b2, step=1.0E-7 ;
-        vary,   name=dQpx.b2, step=1.0E-7 ;
-        vary,   name=dQpy.b2, step=1.0E-7 ;
-        lmdif,  calls=100, tolerance=1.0E-21;
-      endmatch;
-  }
+call,   file="db5/measured_errors/Efcomp_MB.madx"  ;
+call,   file="db5/measured_errors/Efcomp_MQ.madx"  ;
 
-	%(ARCAPPLIED)s
-};
 
 !+++++ Apply field errors to all other quads and dipoles ++++++++++++++++++++++
 
 ! Nominal LHC magnets
 call,   file="db5/measured_errors/Efcomp_MQX.madx" ;
 
-
-if(mylhcbeam==1){
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b1, step=1.0E-7 ;
-     vary,   name=dQy.b1, step=1.0E-7 ;
-     vary,   name=dQpx.b1, step=1.0E-7 ;
-     vary,   name=dQpy.b1, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}else {
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b2, step=1.0E-7 ;
-     vary,   name=dQy.b2, step=1.0E-7 ;
-     vary,   name=dQpx.b2, step=1.0E-7 ;
-     vary,   name=dQpy.b2, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}
-%(MQXAPPLIED)s
 
 call,   file="db5/measured_errors/Efcomp_MBXW.madx"; ! this is the D1 in IP1 and IP5
 call,   file="db5/measured_errors/Efcomp_MBRC.madx"; ! this is the D2 
@@ -339,28 +320,6 @@ call,   file="db5/measured_errors/Efcomp_MBRB.madx"; ! for IP4
 call,   file="db5/measured_errors/Efcomp_MBRS.madx"; ! for IP4
 call,   file="db5/measured_errors/Efcomp_MBW.madx" ; ! this is for IP7 and IP3
 
-if(mylhcbeam==1){
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b1, step=1.0E-7 ;
-     vary,   name=dQy.b1, step=1.0E-7 ;
-     vary,   name=dQpx.b1, step=1.0E-7 ;
-     vary,   name=dQpy.b1, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}else {
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b2, step=1.0E-7 ;
-     vary,   name=dQy.b2, step=1.0E-7 ;
-     vary,   name=dQpx.b2, step=1.0E-7 ;
-     vary,   name=dQpy.b2, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}
-%(MBIPAPPLIED)s
 
 call,   file="db5/measured_errors/Efcomp_MQY.madx" ;
 call,   file="db5/measured_errors/Efcomp_MQM.madx" ;
@@ -369,114 +328,115 @@ call,   file="db5/measured_errors/Efcomp_MQML.madx";
 call,   file="db5/measured_errors/Efcomp_MQTL.madx";
 call,   file="db5/measured_errors/Efcomp_MQW.madx" ;
 
-if(mylhcbeam==1){
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b1, step=1.0E-7 ;
-     vary,   name=dQy.b1, step=1.0E-7 ;
-     vary,   name=dQpx.b1, step=1.0E-7 ;
-     vary,   name=dQpy.b1, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}else {
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b2, step=1.0E-7 ;
-     vary,   name=dQy.b2, step=1.0E-7 ;
-     vary,   name=dQpx.b2, step=1.0E-7 ;
-     vary,   name=dQpy.b2, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}
 %(ALLAPPLIED)s
 
+!############################## Write out amplitude detuning values ###################################################
 
-!############################## Nominal corrections for Triplet and D1 ##########################################################
 
-if (calccorrections == 1) {
-  select, flag=error, clear;
-  select, flag=error, pattern=MQX,  class=multipole;
-  select, flag=error, pattern=MBX,  class=multipole;
-  select, flag=error, pattern=MBRC, class=multipole;
-  esave,  file="temp/tripD1D2.errors";
-  system, "db5/toolkit/corr_tripD1";
-  system, "cp temp/MCX_setting.mad %(CORRECTIONS)s";
+select,flag=twiss,clear;
+select,flag=twiss,pattern="M",column=name,s,x,y,betx,bety,L,K3L,K4L,K4SL,K5L,K5SL;
+if(mylhcbeam==1){twiss,chrom,file="%(OUTPATH)s/twiss.b1.magnets_for_ampdet.dat";}
+if(mylhcbeam>1){twiss,chrom,file="%(OUTPATH)s/twiss.b2.magnets_for_ampdet.dat";}
+
+
+select, flag=error, clear;
+select,flag=error,pattern="M";
+if(mylhcbeam==1){esave,file="%(OUTPATH)s/esave.b1.magnets_for_ampdet.dat";}
+if(mylhcbeam>1){esave,file="%(OUTPATH)s/esave.b2.magnets_for_ampdet.dat";}
+
+
+!############################## Check closest tune approach ##########################################################
+
+cta_frac = (ptcqxinit + ptcqyinit) / 2.0;
+cta_qx = cta_frac + floor(qxinit);
+cta_qy = cta_frac + floor(qyinit);
+
+if(is_thin==1){
+    if(mylhcbeam==1){
+        kqtf_old = kqtf.b1;
+        kqtd_old = kqtd.b1;
+    }
+    if(mylhcbeam>1){
+        kqtf_old = kqtf.b2;
+        kqtd_old = kqtd.b2;
+    }
+} else {
+    if(mylhcbeam==1){
+        dQx_old = dQx.b1;
+        dQy_old = dQy.b1;
+    }
+    if(mylhcbeam>1){
+        dQx_old = dQx.b2;
+        dQy_old = dQy.b2;
+    }
 }
-call,file="%(CORRECTIONS)s";
-
-if(mylhcbeam==1){
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b1, step=1.0E-7 ;
-     vary,   name=dQy.b1, step=1.0E-7 ;
-     vary,   name=dQpx.b1, step=1.0E-7 ;
-     vary,   name=dQpy.b1, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}else {
-   match;
-     global, q1=qxinit, q2=qyinit;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b2, step=1.0E-7 ;
-     vary,   name=dQy.b2, step=1.0E-7 ;
-     vary,   name=dQpx.b2, step=1.0E-7 ;
-     vary,   name=dQpy.b2, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
+if(is_thin==1){
+    !!! thin version of tune matching
+    if(mylhcbeam==1){
+       match;
+         global, q1=cta_qx, q2=cta_qy;
+         vary,   name=kqtf.b1, step=1.0E-7 ;
+         vary,   name=kqtd.b1, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
+    if(mylhcbeam>1){
+       match;
+         global, q1=cta_qx, q2=cta_qy;
+         vary,   name=kqtf.b2, step=1.0E-7 ;
+         vary,   name=kqtd.b2, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
+} else {
+    ! thick version of tune matching
+    if(mylhcbeam==1){
+       match;
+         global, q1=cta_qx, q2=cta_qy;
+         vary,   name=dQx.b1, step=1.0E-7 ;
+         vary,   name=dQy.b1, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
+    if(mylhcbeam>1){
+       match;
+         global, q1=cta_qx, q2=cta_qy;
+         vary,   name=dQx.b2, step=1.0E-7 ;
+         vary,   name=dQy.b2, step=1.0E-7 ;
+         lmdif,  calls=100, tolerance=1.0E-21;
+       endmatch;
+    }
 }
-%(CORRECTED)s
-
-
-!############################## Coupling Check ###################################################################################
-
-ptcqmid = (ptcqyinit + ptcqxinit) * 0.5;
-qxmid = floor(qxinit) + ptcqmid;
-qymid = floor(qyinit) + ptcqmid;
 
 if(mylhcbeam==1) {Use, sequence=lhcb1;}
 if(mylhcbeam>1) {Use, sequence=lhcb2;}
 select,flag=twiss,clear;
 select, flag=twiss, pattern="BPM",   column=name,s,x,y,betx,bety,alfx,alfy,dx,dpx,mux,muy;
 select, flag=twiss, pattern="M",   column=name,s,x,y,betx,bety,alfx,alfy,dx,dpx,mux,muy;
-if(mylhcbeam==1) {twiss,chrom,sequence=lhcb1,file="%(OUTPATH)s/twiss.b1.before_cta.tfs";}
-if(mylhcbeam>1) {twiss,chrom,sequence=lhcb2,file="%(OUTPATH)s/twiss.b2.before_cta.tfs";}
+if(mylhcbeam==1) {twiss,chrom,sequence=lhcb1,file="%(OUTPATH)s/twiss.cta.b1";}
+if(mylhcbeam>1) {twiss,crhom,sequence=lhcb2,file="%(OUTPATH)s/twiss.cta.b2";}
 
-
-if(mylhcbeam==1){
-   match;
-     global, q1=qxmid, q2=qymid;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b1, step=1.0E-7 ;
-     vary,   name=dQy.b1, step=1.0E-7 ;
-     vary,   name=dQpx.b1, step=1.0E-7 ;
-     vary,   name=dQpy.b1, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
-}else{
-   match;
-     global, q1=qxmid, q2=qymid;
-     global, dq1=dqxinit, dq2=dqyinit;
-     vary,   name=dQx.b2, step=1.0E-7 ;
-     vary,   name=dQy.b2, step=1.0E-7 ;
-     vary,   name=dQpx.b2, step=1.0E-7 ;
-     vary,   name=dQpy.b2, step=1.0E-7 ;
-     lmdif,  calls=100, tolerance=1.0E-21;
-   endmatch;
+if(is_thin==1){
+    if(mylhcbeam==1){
+        kqtf.b1 = kqtd_old;
+        kqtd.b1 = kqtf_old;
+    }
+    if(mylhcbeam>1){
+        kqtf.b2 = kqtd_old;
+        kqtd.b2 = kqtf_old;
+    }
+} else {
+    if(mylhcbeam==1){
+        dQx.b1 = dQx_old;
+        dQy.b1 = dQy_old;
+    }
+    if(mylhcbeam>1){
+        dQx.b2 = dQx_old;
+        dQy.b2 = dQy_old;
+    }
 }
 
-if(mylhcbeam==1) {Use, sequence=lhcb1;}
-if(mylhcbeam>1) {Use, sequence=lhcb2;}
-select,flag=twiss,clear;
-select, flag=twiss, pattern="BPM",   column=name,s,x,y,betx,bety,alfx,alfy,dx,dpx,mux,muy;
-select, flag=twiss, pattern="M",   column=name,s,x,y,betx,bety,alfx,alfy,dx,dpx,mux,muy;
-if(mylhcbeam==1) {twiss,chrom,sequence=lhcb1,file="%(OUTPATH)s/twiss.b1.after_cta.tfs";}
-if(mylhcbeam>1) {twiss,chrom,sequence=lhcb2,file="%(OUTPATH)s/twiss.b2.after_cta.tfs";}
-
-
-!############################## Clean Up #########################################################################################
+!############################## Clean Up ##############################################################################
 
 system, "rm -rf temp";
 system, "rm db5";
@@ -490,3 +450,8 @@ system, "rm optics2018";
 stop;
 
 
+! to be able to use the same template runner.
+%(ARCAPPLIED)s
+%(MQXAPPLIED)s
+%(MBIPAPPLIED)s
+%(CORRECTED)s

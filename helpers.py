@@ -71,6 +71,21 @@ def find_file_by_pattern(folder, pattern, recursive=False):
     return files_list
 
 
+def find_zero_byte_files_by_pattern(folder, pattern, recursive=False):
+    """ Uses find_file_by_pattern, but checks each file if it is empty.
+
+    Args:
+        folder: folder to search in for files
+        pattern: pattern they should have
+        recursive: do it recursively
+
+    Returns:
+        List of absolute paths to 0-byte files.
+    """
+    files_list = find_file_by_pattern(folder, pattern, recursive)
+    return [f for f in files_list if os.path.getsize(f) == 0]
+
+
 # Entry Point ################################################################
 
 
